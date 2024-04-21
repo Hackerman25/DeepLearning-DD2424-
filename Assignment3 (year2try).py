@@ -51,13 +51,24 @@ def create_Wb(col, row):  # function 3 initialize the parameters of the model W 
 	return W, b
 
 
+
+
+
 def EvaluateClassifierBonus(X, W, b):  # function 4  evaluates the network function,
 	# CORRECT
-	s1 = W[0] @ X + b[0]
-	h = np.maximum(0, s1)  # ReLu activation function  Xbatch^l gjord på l-1
-	s = W[1] @ h + b[1]
+	k = len(W) + 1
+	s = [None] * (k)
 
-	p = np.exp(s) / np.sum(np.exp(s), axis=0, keepdims=True)  # softmax? could be wrong
+
+	for l in range(1, k - 1):
+		s[l-1] = W[l-1] @ X + b[l-1]
+		X = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
+
+
+	s[-1] = W[-1] @ X + b[-1]
+	h = np.maximum(0, s[0])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
+
+	p = np.exp(s[-1]) / np.sum(np.exp(s[-1]), axis=0, keepdims=True)  # softmax? could be wrong
 
 	return h, p
 
@@ -83,6 +94,7 @@ def ComputeCostLoss(X, Y, W, b, lambda_):  # function 5    computes cost
 def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
 	n_batch = X.shape[1]
+
 
 	# forward pass
 	Hbatch, Pbatch = EvaluateClassifierBonus(X, W, b)
@@ -181,17 +193,18 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, batch_s, n_epochs, lambda_, e
 			j_start = (j - 1) * n_batch
 			j_end = j * n_batch
 
-			Xbatch = X[:, range(j_start, j_end)]
+			Xbatch = X[:, range(j_start, j_end)]                 # @ Sample a batch of the training data
 			Ybatch = Y[:, range(j_start, j_end)]
 
-			[gradientW1, gradientb1, gradientW2, gradientb2] = ComputeGradients(Xbatch, Ybatch, W, lambda_)
+			[gradientW1, gradientb1, gradientW2, gradientb2] = ComputeGradients(Xbatch, Ybatch, W, lambda_)     #Forward propagate and Backward to calc gradient
+
 			Wgrad = [gradientW1, gradientW2]
 			bgrad = [gradientb1, gradientb2]
 
 			for i in range(len(W)):
 				Wgrad[i] = Wgrad[i].reshape(-1, Wgrad[i].shape[-1])
 
-				W[i] = W[i] - eta * Wgrad[i]
+				W[i] = W[i] - eta * Wgrad[i]                     # Update the parameters using the gradient.
 				b[i] = b[i] - eta * bgrad[i]
 
 			[eta, t] = Cyclicalheta(eta_min, eta_max, ns, t)
@@ -286,6 +299,30 @@ if __name__ == "__main__":
 	dataTrN = normalizedata(dataTr)
 	dataVaN = normalizedata(dataVa)
 
+	# creating layers neural network
+
+	"""
+
+	m1, m2,  d = 50, 30,  dataTr.shape[0]
+	W1, b1 = create_Wb(m1, d)  # m = 50 numb hidden layers , d = 3072
+
+	print(W1.shape, b1.shape)
+
+	K = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
+	W2, b2 = create_Wb(m2, m1)
+
+	print(W2.shape, b2.shape)
+
+	W3, b3 = create_Wb(K, m2)
+
+	print(W3.shape, b3.shape)
+
+	W = [W1, W2, W3]
+	b = [b1, b2, b3]
+
+
+	"""
+
 	m, d = 50, dataTr.shape[0]
 	W1, b1 = create_Wb(m, d)  # m = 50 numb hidden layers , d = 3072
 
@@ -294,6 +331,8 @@ if __name__ == "__main__":
 
 	W = [W1, W2]
 	b = [b1, b2]
+
+
 
 	X = dataTrN
 	y = np.array(labelsTr)  # reshape to 1,10000 and make array
