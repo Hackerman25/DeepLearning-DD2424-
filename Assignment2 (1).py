@@ -2,6 +2,7 @@ import numpy as np
 from functions import *
 import matplotlib.pyplot as plt
 import itertools
+import numpy as np
 
 
 def LoadBatch(file):
@@ -111,7 +112,6 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
 
 
-import numpy as np
 
 
 
@@ -151,8 +151,6 @@ def ComputeAccuracy(X, y, W, b):  #KORREKT function 6 compute accuracy on evalua
     s1 = W[0] @ X + b[0]
     h = np.maximum(0, s1)  # ReLu activation function  Xbatch^l gjord på l-1
     s = W[1] @ h + b[1]
-
-
 
     ypredict = np.argmax(s, axis=0)
 
@@ -320,98 +318,90 @@ def randomsearch(model, parameters,randiterations):
 
 #Exercise 1
 
-[dataTr,labelsTr] = fixdata()
 
-dataVa = dataTr[:, -1000:]
-labelsVa = labelsTr[-1000:]
+if __name__ == "__main__":
 
-dataTr = dataTr[:, :-1000]
-labelsTr = labelsTr[:-1000]
+	[dataTr,labelsTr] = fixdata()
 
+	dataVa = dataTr[:, -1000:]
+	labelsVa = labelsTr[-1000:]
+	dataTr = dataTr[:, :-1000]
+	labelsTr = labelsTr[:-1000]
+	dataTrN = normalizedata(dataTr)
+	dataVaN = normalizedata(dataVa)
 
-dataTrN = normalizedata(dataTr)
-dataVaN = normalizedata(dataVa)
-
-m,d  =  50,dataTr.shape[0]
-W1, b1 = create_Wb(m,d) # m = 50 numb hidden layers , d = 3072
-
-
-K = len(np.unique(np.array(labelsTr)))     # K = probabilities so 10
-W2, b2 = create_Wb(K,m)
+	m,d  =  50,dataTr.shape[0]
+	W1, b1 = create_Wb(m,d) # m = 50 numb hidden layers , d = 3072
 
 
-W = [W1,W2]
-b = [b1,b2]
+	K = len(np.unique(np.array(labelsTr)))     # K = probabilities so 10
+	W2, b2 = create_Wb(K,m)
 
 
-
-X = dataTrN
-y = np.array(labelsTr)  # reshape to 1,10000 and make array
-Y = np.eye(len(np.unique(y)))[y].T  # onehotencoded
-
-X_val = dataVaN
-y_val = np.array(labelsVa)
-Y_val = np.eye(len(np.unique(y_val)))[y_val].T  # onehotencoded
+	W = [W1,W2]
+	b = [b1,b2]
 
 
 
-t = 0
-tcount = 0
-#Exercise 2
+	X = dataTrN
+	y = np.array(labelsTr)  # reshape to 1,10000 and make array
+	Y = np.eye(len(np.unique(y)))[y].T  # onehotencoded
+
+	X_val = dataVaN
+	y_val = np.array(labelsVa)
+	Y_val = np.eye(len(np.unique(y_val)))[y_val].T  # onehotencoded
 
 
 
+	t = 0
+	tcount = 0
+	#Exercise 2
 
 
 
+	#TEST for if gradients are correct
+	"""
+	gradnum = compute_grads_num(X[:,0:1], Y[:,0:1],lambda_=0, h=0.001)
+	grad = ComputeGradients(X[:,0:1], Y[:,0:1], W, lambda_=0)
+	
+	for e in range(0,4):
+	    print("@@@@@@@@@@@")
+	    
+	    print(gradnum[e]-grad[e])
+	"""
+
+
+	#gridsearch
+
+	"""
+	parameters = {"batch_s": [100], "n_epochs": [20],"lambda_": [0.1,0.05,0.01,0.005,0.001,0.0005], "eta_min": [1e-5],"eta_max": [1e-1],"ns": [500], "plotpercycle": [10]}
+	[bestacc, bestparams, W, b,trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist] = gridsearch(TrainMiniBatch, parameters)
+	print("best acc from gridsearch: ", bestacc, "bestparams: ", bestparams)
+	"""
 
 
 
+	#random search
+
+	"""
+	parameters = {"batch_s": [100], "n_epochs": [20],
+	              "lambda_": [0.005,0.0005], "eta_min": [1e-5],"eta_max": [1e-1],"ns": [500], "plotpercycle": [10]}
+	[bestacc, bestparams, W, b,trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist] \
+	    = randomsearch(TrainMiniBatch, parameters,randiterations = 10)
+	print("best acc from randomsearch: ", bestacc, "bestparams: ", bestparams)
+	"""
+
+	#best value
+
+	[W, b,trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist,eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b,t,
+	batch_s=100, n_epochs=30, lambda_=0.0045105,eta_min=1e-5,eta_max = 1e-1,ns = 500, plotpercycle = 10)
+	Accuracy = ComputeAccuracy(X_val, y_val, W, b)
+	print("best acc from randomsearch: ", Accuracy)
 
 
-#TEST for if gradients are correct
-"""
-gradnum = compute_grads_num(X[:,0:1], Y[:,0:1],lambda_=0, h=0.001)
-grad = ComputeGradients(X[:,0:1], Y[:,0:1], W, lambda_=0)
-
-for e in range(0,4):
-    print("@@@@@@@@@@@")
-    
-    print(gradnum[e]-grad[e])
-"""
-
-
-#gridsearch
-
-"""
-parameters = {"batch_s": [100], "n_epochs": [20],"lambda_": [0.1,0.05,0.01,0.005,0.001,0.0005], "eta_min": [1e-5],"eta_max": [1e-1],"ns": [500], "plotpercycle": [10]}
-[bestacc, bestparams, W, b,trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist] = gridsearch(TrainMiniBatch, parameters)
-print("best acc from gridsearch: ", bestacc, "bestparams: ", bestparams)
-"""
-
-
-
-#random search
-
-"""
-parameters = {"batch_s": [100], "n_epochs": [20],
-              "lambda_": [0.005,0.0005], "eta_min": [1e-5],"eta_max": [1e-1],"ns": [500], "plotpercycle": [10]}
-[bestacc, bestparams, W, b,trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist] \
-    = randomsearch(TrainMiniBatch, parameters,randiterations = 10)
-print("best acc from randomsearch: ", bestacc, "bestparams: ", bestparams)
-"""
-
-#best value
-
-[W, b,trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist,eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b,t,
-batch_s=100, n_epochs=30, lambda_=0.0045105,eta_min=1e-5,eta_max = 1e-1,ns = 500, plotpercycle = 10)
-Accuracy = ComputeAccuracy(X_val, y_val, W, b)
-print("best acc from randomsearch: ", Accuracy)
-
-
-#plot
-visualisegraph(trainCostJ,validationCostJ,updatesteps,"cost")
-visualisegraph(trainLossJ,validationLossJ,updatesteps,"loss")
-visualisegraph(acctrainlist,accvallist,updatesteps,"accuracy")
+	#plot
+	visualisegraph(trainCostJ,validationCostJ,updatesteps,"cost")
+	visualisegraph(trainLossJ,validationLossJ,updatesteps,"loss")
+	visualisegraph(acctrainlist,accvallist,updatesteps,"accuracy")
 
 
