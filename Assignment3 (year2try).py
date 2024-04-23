@@ -58,19 +58,21 @@ def EvaluateClassifierBonus(X, W, b):  # function 4  evaluates the network funct
 	# CORRECT
 	k = len(W) + 1
 	s = [None] * (k)
+	X_batch = [None] * (k-1)
+	X_batch[0] = X
 
 
 	for l in range(1, k - 1):
-		s[l-1] = W[l-1] @ X + b[l-1]
-		X = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
+		s[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
+		X_batch[l] = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
 
 
-	s[-1] = W[-1] @ X + b[-1]
-	h = np.maximum(0, s[0])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
+	s[-1] = W[-1] @ X_batch[-1] + b[-1]
+	X_batch[-1] = np.maximum(0, s[0])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
 
 	p = np.exp(s[-1]) / np.sum(np.exp(s[-1]), axis=0, keepdims=True)  # softmax? could be wrong
 
-	return h, p
+	return X_batch, p
 
 
 def clcross(Y, p):  # korrekt confirmed
@@ -97,19 +99,38 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
 
 	# forward pass
-	Hbatch, Pbatch = EvaluateClassifierBonus(X, W, b)
+	X_batch, Pbatch = EvaluateClassifierBonus(X, W, b)
 
 	# backward pass
 
 	Gbatch = Pbatch - Y
-	gradientW2 = 1 / n_batch * Gbatch @ Hbatch.T + 2 * lambda_ * W[1]
+	gradientW2 = 1 / n_batch * Gbatch @ X_batch[-1].T + 2 * lambda_ * W[1]
 	gradientb2 = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
 	Gbatch = W[1].T @ Gbatch
-	Gbatch = Gbatch * np.array(Hbatch > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
+	Gbatch = Gbatch * np.array(X_batch[-1] > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
 
 	gradientW1 = 1 / n_batch * Gbatch @ X.T + lambda_ * W[0]
 	gradientb1 = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+
+	"""
+	gradientWvect = [None] * (k)
+	gradientbvect = [None] * (k)
+
+
+	for l in range(k,2,-1):
+		gradientWvect[l-1] = 1 / n_batch * Gbatch @ Xbatchvect[l-2].T # + 2 * lambda_ * W[1]
+
+		print(np.shape(Gbatch), np.shape( np.ones((n_batch, 1))))
+		gradientbvect[l-1] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+
+		Gbatch = W[1].T @ Gbatch
+		Gbatch = Gbatch * np.array(Xbatchvect > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
+
+	gradientWvect[-1] = 1 / n_batch * Gbatch @ X.T + lambda_ * W[0]
+	gradientbvect[-1] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+
+	"""
 
 	return gradientW1, gradientb1, gradientW2, gradientb2
 
@@ -388,5 +409,3 @@ if __name__ == "__main__":
 	visualisegraph(trainCostJ, validationCostJ, updatesteps, "cost")
 	visualisegraph(trainLossJ, validationLossJ, updatesteps, "loss")
 	visualisegraph(acctrainlist, accvallist, updatesteps, "accuracy")
-
-

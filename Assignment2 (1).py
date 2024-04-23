@@ -93,9 +93,13 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
     # forward pass
     Hbatch, Pbatch = EvaluateClassifierBonus(X, W, b)
 
+    print("@", Hbatch.shape)
+
     # backward pass
 
     Gbatch = Pbatch - Y
+
+
     gradientW2 = 1 / n_batch * Gbatch @ Hbatch.T + 2*lambda_ * W[1]
     gradientb2 = 1 / n_batch * Gbatch @ np.ones((n_batch,1))
 
