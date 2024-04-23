@@ -97,13 +97,17 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
 	n_batch = X.shape[1]
 
-
 	# forward pass
 	X_batch, Pbatch = EvaluateClassifierBonus(X, W, b)
 
 	# backward pass
 
 	Gbatch = Pbatch - Y
+
+	"""
+	
+
+	
 	gradientW2 = 1 / n_batch * Gbatch @ X_batch[-1].T + 2 * lambda_ * W[1]
 	gradientb2 = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
@@ -114,23 +118,30 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 	gradientb1 = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
 	"""
-	gradientWvect = [None] * (k)
-	gradientbvect = [None] * (k)
 
+	k = len(W)+1
 
+	gradientWvect = [None] * (k-1)
+	gradientbvect = [None] * (k-1)
+
+	print(k)
 	for l in range(k,2,-1):
-		gradientWvect[l-1] = 1 / n_batch * Gbatch @ Xbatchvect[l-2].T # + 2 * lambda_ * W[1]
+		print(l)
+		gradientWvect[l-2] = 1 / n_batch * Gbatch @ X_batch[l-2].T # + 2 * lambda_ * W[1]
 
 		print(np.shape(Gbatch), np.shape( np.ones((n_batch, 1))))
-		gradientbvect[l-1] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+		gradientbvect[l-2] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
 		Gbatch = W[1].T @ Gbatch
-		Gbatch = Gbatch * np.array(Xbatchvect > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
+		Gbatch = Gbatch * np.array(X_batch[l-2] > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
 
-	gradientWvect[-1] = 1 / n_batch * Gbatch @ X.T + lambda_ * W[0]
-	gradientbvect[-1] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+	gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
+	gradientbvect[0] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
-	"""
+	gradientW1 = gradientWvect[0]
+	gradientb1 = gradientbvect[0]
+	gradientW2 = gradientWvect[1]
+	gradientb2 = gradientbvect[1]
 
 	return gradientW1, gradientb1, gradientW2, gradientb2
 
