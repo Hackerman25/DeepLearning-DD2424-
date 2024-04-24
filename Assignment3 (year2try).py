@@ -68,7 +68,7 @@ def EvaluateClassifierBonus(X, W, b):  # function 4  evaluates the network funct
 
 
 	s[-1] = W[-1] @ X_batch[-1] + b[-1]
-	X_batch[-1] = np.maximum(0, s[0])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
+	#X_batch[-1] = np.maximum(0, s[0])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
 
 	p = np.exp(s[-1]) / np.sum(np.exp(s[-1]), axis=0, keepdims=True)  # softmax? could be wrong
 
@@ -124,26 +124,23 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 	gradientWvect = [None] * (k-1)
 	gradientbvect = [None] * (k-1)
 
-	print(k)
+
 	for l in range(k,2,-1):
-		print(l)
+
 		gradientWvect[l-2] = 1 / n_batch * Gbatch @ X_batch[l-2].T # + 2 * lambda_ * W[1]
 
-		print(np.shape(Gbatch), np.shape( np.ones((n_batch, 1))))
+
 		gradientbvect[l-2] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
-		Gbatch = W[1].T @ Gbatch
+		Gbatch = W[l-2].T @ Gbatch
+
+
 		Gbatch = Gbatch * np.array(X_batch[l-2] > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
 
 	gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
 	gradientbvect[0] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
-	gradientW1 = gradientWvect[0]
-	gradientb1 = gradientbvect[0]
-	gradientW2 = gradientWvect[1]
-	gradientb2 = gradientbvect[1]
-
-	return gradientW1, gradientb1, gradientW2, gradientb2
+	return gradientWvect, gradientbvect
 
 
 def compute_grads_num(X, Y, lambda_, h):
@@ -173,12 +170,17 @@ def compute_grads_num(X, Y, lambda_, h):
 
 
 def ComputeAccuracy(X, y, W, b):  # KORREKT function 6 compute accuracy on evaluation
+	"""
 	s1 = W[0] @ X + b[0]
 	h = np.maximum(0, s1)  # ReLu activation function  Xbatch^l gjord på l-1
 	s = W[1] @ h + b[1]
 
 	ypredict = np.argmax(s, axis=0)
 
+	acc = np.sum(ypredict == y) / len(y)
+	"""
+	_, p = EvaluateClassifierBonus(X, W, b)
+	ypredict = np.argmax(p, axis=0)
 	acc = np.sum(ypredict == y) / len(y)
 
 	return acc
@@ -228,16 +230,13 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, batch_s, n_epochs, lambda_, e
 			Xbatch = X[:, range(j_start, j_end)]                 # @ Sample a batch of the training data
 			Ybatch = Y[:, range(j_start, j_end)]
 
-			[gradientW1, gradientb1, gradientW2, gradientb2] = ComputeGradients(Xbatch, Ybatch, W, lambda_)     #Forward propagate and Backward to calc gradient
-
-			Wgrad = [gradientW1, gradientW2]
-			bgrad = [gradientb1, gradientb2]
+			[gradientWvect,gradientbvect] = ComputeGradients(Xbatch, Ybatch, W, lambda_)     #Forward propagate and Backward to calc gradient
 
 			for i in range(len(W)):
-				Wgrad[i] = Wgrad[i].reshape(-1, Wgrad[i].shape[-1])
+				gradientWvect[i] = gradientWvect[i].reshape(-1, gradientWvect[i].shape[-1])
 
-				W[i] = W[i] - eta * Wgrad[i]                     # Update the parameters using the gradient.
-				b[i] = b[i] - eta * bgrad[i]
+				W[i] = W[i] - eta * gradientWvect[i]                     # Update the parameters using the gradient.
+				b[i] = b[i] - eta * gradientbvect[i]
 
 			[eta, t] = Cyclicalheta(eta_min, eta_max, ns, t)
 
@@ -356,13 +355,19 @@ if __name__ == "__main__":
 	"""
 
 	m, d = 50, dataTr.shape[0]
+	K1 = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
+
 	W1, b1 = create_Wb(m, d)  # m = 50 numb hidden layers , d = 3072
+	K2 = 50
+	K3 = 40
+	W2, b2 = create_Wb(K2, m)
 
-	K = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
-	W2, b2 = create_Wb(K, m)
+	W3, b3 = create_Wb(K3, K2)
 
-	W = [W1, W2]
-	b = [b1, b2]
+	W4, b4 = create_Wb(K1, K3)
+
+	W = [W1, W2, W3,W4]
+	b = [b1, b2, b3, b4]
 
 
 
