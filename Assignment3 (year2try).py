@@ -75,6 +75,43 @@ def EvaluateClassifierBonus(X, W, b):  # function 4  evaluates the network funct
     return X_batch, p
 
 
+def EvaluateClassifierBonusBN(X, W, b):  # function 4  evaluates the network function,
+    # CORRECT
+    k = len(W) + 1
+    s = [None] * (k)
+    X_batch = [None] * (k-1)
+    X_batch[0] = X
+
+    n = len(X)
+    s_batch = [None] * n
+    my = [None] * (k-1)
+    sigma = [None] * (k-1)
+
+
+
+    for l in range(1, k - 1):
+
+
+        s_batch[l] = W[l-1] @ X_batch[l-1] + b[l-1]
+
+
+
+
+        my[l] = s_batch[l].mean(axis=1).reshape(s_batch[l].shape[0], 1)
+        sigma[l] = s_batch[l].var(axis=1).reshape(s_batch[l].shape[0], 1)  #HERE NEW
+
+        s[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
+        X_batch[l] = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
+
+
+    s[-1] = W[-1] @ X_batch[-1] + b[-1]
+    #X_batch[-1] = np.maximum(0, s[-1])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
+
+    p = np.exp(s[-1]) / np.sum(np.exp(s[-1]), axis=0, keepdims=True)  # softmax? could be wrong
+
+    return X_batch, p
+
+
 def clcross(Y, p):  # korrekt confirmed
     return - Y * np.log(p)
 
@@ -118,6 +155,41 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
     gradientb1 = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
     """
+
+    k = len(W)+1
+
+    gradientWvect = [None] * (k-1)
+    gradientbvect = [None] * (k-1)
+
+
+    for l in range(k,2,-1):
+
+        gradientWvect[l-2] = 1 / n_batch * Gbatch @ X_batch[l-2].T + 2 * lambda_ * W[l-2]
+
+
+        gradientbvect[l-2] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+
+        Gbatch = W[l-2].T @ Gbatch
+
+
+        Gbatch = Gbatch * np.array(X_batch[l-2] > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
+
+    gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
+    gradientbvect[0] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+
+    return gradientWvect, gradientbvect
+
+def ComputeGradientsBN(X, Y, W, lambda_):  # P and Y should be batch
+
+    n_batch = X.shape[1]
+
+    # forward pass
+    X_batch, Pbatch = EvaluateClassifierBonusBN(X, W, b)
+
+    # backward pass
+
+    Gbatch = Pbatch - Y
+
 
     k = len(W)+1
 
@@ -223,7 +295,7 @@ def Cyclicalheta(eta_min, eta_max, ns, t):  # Exercise 3: cyclical learning rate
     return eta, t
 
 
-def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle):
+def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle,BatchNorm):
     [trainCostJ, trainLossJ] = [], []
     [validationCostJ, validationLossJ] = [], []
     updatesteps = []
@@ -243,7 +315,10 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, batch_s, n_epochs, lambda_, e
             Xbatch = X[:, range(j_start, j_end)]                 # @ Sample a batch of the training data
             Ybatch = Y[:, range(j_start, j_end)]
 
-            [gradientWvect,gradientbvect] = ComputeGradients(Xbatch, Ybatch, W, lambda_)     #Forward propagate and Backward to calc gradient
+            if BatchNorm:
+                [gradientWvect,gradientbvect] = ComputeGradientsBN(Xbatch, Ybatch, W, lambda_)     #Forward propagate and Backward to calc gradient
+            else:
+                [gradientWvect, gradientbvect] = ComputeGradients(Xbatch, Ybatch, W,lambda_)     #Forward propagate and Backward to calc gradient
 
             for i in range(len(W)):
                 gradientWvect[i] = gradientWvect[i].reshape(-1, gradientWvect[i].shape[-1])
@@ -416,7 +491,7 @@ if __name__ == "__main__":
     [W, b, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist,
      eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,
                            batch_s=100, n_epochs=30, lambda_=0.0045105, eta_min=1e-5, eta_max=1e-1, ns=500,
-                           plotpercycle=10)
+                           plotpercycle=10,BatchNorm = True)
     Accuracy = ComputeAccuracy(X_val, y_val, W, b)
     print("best acc from randomsearch: ", Accuracy)
 
