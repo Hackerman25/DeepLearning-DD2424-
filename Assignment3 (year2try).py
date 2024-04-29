@@ -75,6 +75,12 @@ def EvaluateClassifierBonus(X, W, b):  # function 4  evaluates the network funct
     return X_batch, p
 
 
+def BatchNormalize(s_batch_l,my_l,v_l):
+    return (np.diag(np.diag(v_l+2.22E-16)))**(-0.5)* (s_batch_l-my_l)
+
+
+
+
 def EvaluateClassifierBonusBN(X, W, b):  # function 4  evaluates the network function,
     # CORRECT
     k = len(W) + 1
@@ -84,6 +90,8 @@ def EvaluateClassifierBonusBN(X, W, b):  # function 4  evaluates the network fun
 
     n = len(X)
     s_batch = [None] * n
+    s_hat = [None] * n
+    s_tilde = [None] * n
     my = [None] * (k-1)
     sigma = [None] * (k-1)
 
@@ -99,6 +107,9 @@ def EvaluateClassifierBonusBN(X, W, b):  # function 4  evaluates the network fun
 
         my[l] = s_batch[l].mean(axis=1).reshape(s_batch[l].shape[0], 1)
         sigma[l] = s_batch[l].var(axis=1).reshape(s_batch[l].shape[0], 1)  #HERE NEW
+
+        s_hat[l] = BatchNormalize(s_batch[l],my[l],sigma[l])
+        #s_tilde[l] =    gamma????
 
         s[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
         X_batch[l] = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
@@ -295,7 +306,7 @@ def Cyclicalheta(eta_min, eta_max, ns, t):  # Exercise 3: cyclical learning rate
     return eta, t
 
 
-def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle,BatchNorm):
+def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, BatchNorm, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle):
     [trainCostJ, trainLossJ] = [], []
     [validationCostJ, validationLossJ] = [], []
     updatesteps = []
@@ -420,6 +431,8 @@ def testgradients():
 
 
 if __name__ == "__main__":
+    BatchNorm = True
+
     [dataTr, labelsTr] = fixdata()
 
     dataVa = dataTr[:, -1000:]
@@ -446,6 +459,19 @@ if __name__ == "__main__":
 
     W = [W1, W2, W3,W4]
     b = [b1, b2, b3, b4]
+
+
+    k = len(W)
+    gamma = []
+    beta = []
+    if BatchNorm:
+        for i in range(k):
+            gamma.append(np.ones_like(W[i]))
+            beta.append(np.ones_like(b[i]))   #GABAGO
+
+
+
+
 
 
 
@@ -489,9 +515,9 @@ if __name__ == "__main__":
     # best value
 
     [W, b, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist,
-     eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,
+     eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,BatchNorm,
                            batch_s=100, n_epochs=30, lambda_=0.0045105, eta_min=1e-5, eta_max=1e-1, ns=500,
-                           plotpercycle=10,BatchNorm = True)
+                           plotpercycle=10)
     Accuracy = ComputeAccuracy(X_val, y_val, W, b)
     print("best acc from randomsearch: ", Accuracy)
 
