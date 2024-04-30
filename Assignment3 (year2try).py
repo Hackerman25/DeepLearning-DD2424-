@@ -76,12 +76,16 @@ def EvaluateClassifierBonus(X, W, b):  # function 4  evaluates the network funct
 
 
 def BatchNormalize(s_batch_l,my_l,v_l):
-    return (np.diag(np.diag(v_l+2.22E-16)))**(-0.5)* (s_batch_l-my_l)
+    part1 = np.diag(1 / np.sqrt(v_l + 1e-12))
+    part2 = s_batch_l - my_l
+
+    return np.dot(part1, part2)
 
 
 
 
-def EvaluateClassifierBonusBN(X, W, b):  # function 4  evaluates the network function,
+
+def EvaluateClassifierBonusBN(X, W, b ,gamma, beta):  # function 4  evaluates the network function,
     # CORRECT
     k = len(W) + 1
     s = [None] * (k)
@@ -100,16 +104,15 @@ def EvaluateClassifierBonusBN(X, W, b):  # function 4  evaluates the network fun
     for l in range(1, k - 1):
 
 
-        s_batch[l] = W[l-1] @ X_batch[l-1] + b[l-1]
+        s_batch[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
 
+        my[l-1] = s_batch[l-1].mean(axis=1).reshape(s_batch[l-1].shape[0], 1) #correct
+        sigma[l-1] = s_batch[l-1].var(axis=1).reshape(s_batch[l-1].shape[0])  #correct
 
+        s_hat[l-1] = BatchNormalize(s_batch[l-1],my[l-1],sigma[l-1])   #correct
 
-
-        my[l] = s_batch[l].mean(axis=1).reshape(s_batch[l].shape[0], 1)
-        sigma[l] = s_batch[l].var(axis=1).reshape(s_batch[l].shape[0], 1)  #HERE NEW
-
-        s_hat[l] = BatchNormalize(s_batch[l],my[l],sigma[l])
-        #s_tilde[l] =    gamma????
+        print("PROBLEM",np.shape(gamma[l-1]),np.shape(s_hat[l-1]),np.shape(beta[l-1])) #PROBLEM
+        s_tilde[l-1] = gamma[l-1] * s_hat[l-1] + beta[l-1]
 
         s[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
         X_batch[l] = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
@@ -190,12 +193,12 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
     return gradientWvect, gradientbvect
 
-def ComputeGradientsBN(X, Y, W, lambda_):  # P and Y should be batch
+def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta,):  # P and Y should be batch
 
     n_batch = X.shape[1]
 
     # forward pass
-    X_batch, Pbatch = EvaluateClassifierBonusBN(X, W, b)
+    X_batch, Pbatch = EvaluateClassifierBonusBN(X, W, b,gamma, beta)
 
     # backward pass
 
@@ -306,7 +309,7 @@ def Cyclicalheta(eta_min, eta_max, ns, t):  # Exercise 3: cyclical learning rate
     return eta, t
 
 
-def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, BatchNorm, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle):
+def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle):
     [trainCostJ, trainLossJ] = [], []
     [validationCostJ, validationLossJ] = [], []
     updatesteps = []
@@ -327,8 +330,9 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t, BatchNorm, batch_s, n_epochs,
             Ybatch = Y[:, range(j_start, j_end)]
 
             if BatchNorm:
-                [gradientWvect,gradientbvect] = ComputeGradientsBN(Xbatch, Ybatch, W, lambda_)     #Forward propagate and Backward to calc gradient
+                [gradientWvect,gradientbvect] = ComputeGradientsBN(Xbatch, Ybatch, W, lambda_, gamma, beta,)     #Forward propagate and Backward to calc gradient
             else:
+
                 [gradientWvect, gradientbvect] = ComputeGradients(Xbatch, Ybatch, W,lambda_)     #Forward propagate and Backward to calc gradient
 
             for i in range(len(W)):
@@ -451,11 +455,13 @@ if __name__ == "__main__":
     W1, b1 = create_Wb(m, d)  # m = 50 numb hidden layers , d = 3072
     K2 = 50
     K3 = 40
-    W2, b2 = create_Wb(K2, m)
+    K = [K3,K2,K1]
 
-    W3, b3 = create_Wb(K3, K2)
+    W2, b2 = create_Wb(K3, m)
 
-    W4, b4 = create_Wb(K1, K3)
+    W3, b3 = create_Wb(K2, K3)
+
+    W4, b4 = create_Wb(K1, K2)
 
     W = [W1, W2, W3,W4]
     b = [b1, b2, b3, b4]
@@ -465,9 +471,9 @@ if __name__ == "__main__":
     gamma = []
     beta = []
     if BatchNorm:
-        for i in range(k):
-            gamma.append(np.ones_like(W[i]))
-            beta.append(np.ones_like(b[i]))   #GABAGO
+        for i in range(k-1):
+            gamma.append(np.ones((K[i],1)))
+            beta.append(np.zeros((K[i],1)))   #GABAGO
 
 
 
@@ -515,7 +521,7 @@ if __name__ == "__main__":
     # best value
 
     [W, b, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist,
-     eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,BatchNorm,
+     eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm,
                            batch_s=100, n_epochs=30, lambda_=0.0045105, eta_min=1e-5, eta_max=1e-1, ns=500,
                            plotpercycle=10)
     Accuracy = ComputeAccuracy(X_val, y_val, W, b)
