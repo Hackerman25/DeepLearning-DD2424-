@@ -123,7 +123,7 @@ def EvaluateClassifierBonusBN(X, W, b ,gamma, beta):  # function 4  evaluates th
 
     p = np.exp(s_batch[-1]) / np.sum(np.exp(s_batch[-1]), axis=0, keepdims=True)  # softmax? could be wrong
 
-    return X_batch, p
+    return X_batch, p, X_batch, s_batch, s_tilde
 
 
 def clcross(Y, p):  # korrekt confirmed
@@ -132,7 +132,10 @@ def clcross(Y, p):  # korrekt confirmed
 
 def ComputeCostLoss(X, Y, W, b, lambda_):  # function 5    computes cost
     # works
-    _, p = EvaluateClassifierBonus(X, W, b)
+    if BatchNorm:
+        _, p,_,_,_ = EvaluateClassifierBonusBN(X, W, b,gamma,beta)
+    else:
+        _, p = EvaluateClassifierBonus(X, W, b)
 
     lcross = clcross(Y, p)
 
@@ -198,17 +201,29 @@ def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta,):  # P and Y should be bat
     n_batch = X.shape[1]
 
     # forward pass
-    X_batch, Pbatch = EvaluateClassifierBonusBN(X, W, b,gamma, beta)
+    X_batch, Pbatch, X_batch, s_batch, s_tilde = EvaluateClassifierBonusBN(X, W, b,gamma, beta)
+
 
     # backward pass
+    k = len(W) + 1
+    gradientWvect = [None] * (k - 1)
+    gradientbvect = [None] * (k - 1)
 
     Gbatch = Pbatch - Y
 
 
-    k = len(W)+1
+    # The gradients of J w.r.t. bias vector bk and Wk
+    gradientWvect[-1] = 1 / n_batch * Gbatch @ X_batch[-1].T + 2 * lambda_ * W[-1]
+    gradientbvect[-1] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
-    gradientWvect = [None] * (k-1)
-    gradientbvect = [None] * (k-1)
+    # Propagate Gbatch to the previous layer ... workINprogress
+
+    #Gbatch = W[-1].T @ Gbatch
+    #Gbatch = Gbatch * np.array(X_batch[-1] > 0)
+
+
+
+
 
 
     for l in range(k,2,-1):
