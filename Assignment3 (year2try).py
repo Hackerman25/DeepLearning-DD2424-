@@ -123,7 +123,7 @@ def EvaluateClassifierBonusBN(X, W, b ,gamma, beta):  # function 4  evaluates th
 
     p = np.exp(s_batch[-1]) / np.sum(np.exp(s_batch[-1]), axis=0, keepdims=True)  # softmax? could be wrong
 
-    return X_batch, p, X_batch, s_batch, s_tilde, s_hat
+    return X_batch, p, X_batch, s_batch, s_tilde, s_hat, my, sigma
 
 
 def clcross(Y, p):  # korrekt confirmed
@@ -133,7 +133,7 @@ def clcross(Y, p):  # korrekt confirmed
 def ComputeCostLoss(X, Y, W, b, lambda_):  # function 5    computes cost
     # works
     if BatchNorm:
-        _, p,_,_,_,_= EvaluateClassifierBonusBN(X, W, b,gamma,beta)
+        _, p,_,_,_,_,_,_= EvaluateClassifierBonusBN(X, W, b,gamma,beta)
     else:
         _, p = EvaluateClassifierBonus(X, W, b)
 
@@ -196,12 +196,23 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
     return gradientWvect, gradientbvect
 
+
+def BatchNormBackPass(Gbatch,s_batch,my, sigma):
+    n_batch = X.shape[1]
+
+    eps = 1e-12
+    sigma1 = ((sigma+eps)**-0.5).T
+    sigma2 = ((sigma+eps)**-1.5).T
+    G1 = Gbatch * (sigma1 @ np.ones((n_batch,1)))  #here fault!!!
+    G2 = Gbatch * (sigma2 @ np.ones((n_batch,1)))
+    #D = s_batch
 def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta):  # P and Y should be batch
 
     n_batch = X.shape[1]
 
     # forward pass
-    X_batch, Pbatch, X_batch, s_batch, s_tilde, s_hat = EvaluateClassifierBonusBN(X, W, b,gamma, beta)
+    X_batch, Pbatch, X_batch, s_batch, s_tilde, s_hat, my, sigma =\
+        EvaluateClassifierBonusBN(X, W, b,gamma, beta)
 
 
 
@@ -238,7 +249,7 @@ def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta):  # P and Y should be batc
         Gbatch = Gbatch * (gamma[l-1] @ np.ones((1, n_batch)))
 
         #Propagate Gbatch through the batch normalization
-        Gbatch = Gbatch * np.array(X_batch[l-2] > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
+        Gbatch = BatchNormBackPass(Gbatch,s_batch[l-1],my[l-1], sigma[l-1])
 
     gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
     gradientbvect[0] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
