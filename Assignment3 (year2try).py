@@ -123,7 +123,7 @@ def EvaluateClassifierBonusBN(X, W, b ,gamma, beta):  # function 4  evaluates th
 
     p = np.exp(s_batch[-1]) / np.sum(np.exp(s_batch[-1]), axis=0, keepdims=True)  # softmax? could be wrong
 
-    return X_batch, p, X_batch, s_batch, s_tilde
+    return X_batch, p, X_batch, s_batch, s_tilde, s_hat
 
 
 def clcross(Y, p):  # korrekt confirmed
@@ -133,7 +133,7 @@ def clcross(Y, p):  # korrekt confirmed
 def ComputeCostLoss(X, Y, W, b, lambda_):  # function 5    computes cost
     # works
     if BatchNorm:
-        _, p,_,_,_ = EvaluateClassifierBonusBN(X, W, b,gamma,beta)
+        _, p,_,_,_,_= EvaluateClassifierBonusBN(X, W, b,gamma,beta)
     else:
         _, p = EvaluateClassifierBonus(X, W, b)
 
@@ -196,18 +196,20 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
     return gradientWvect, gradientbvect
 
-def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta,):  # P and Y should be batch
+def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta):  # P and Y should be batch
 
     n_batch = X.shape[1]
 
     # forward pass
-    X_batch, Pbatch, X_batch, s_batch, s_tilde = EvaluateClassifierBonusBN(X, W, b,gamma, beta)
+    X_batch, Pbatch, X_batch, s_batch, s_tilde, s_hat = EvaluateClassifierBonusBN(X, W, b,gamma, beta)
+
 
 
     # backward pass
-    k = len(W) + 1
-    gradientWvect = [None] * (k - 1)
-    gradientbvect = [None] * (k - 1)
+    gradientWvect = [None] * (k)
+    gradientbvect = [None] * (k)
+    gradientGammavect = [None] * (k)
+    gradientBetavect  = [None] * (k)
 
     Gbatch = Pbatch - Y
 
@@ -218,24 +220,24 @@ def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta,):  # P and Y should be bat
 
     # Propagate Gbatch to the previous layer ... workINprogress
 
-    #Gbatch = W[-1].T @ Gbatch
-    #Gbatch = Gbatch * np.array(X_batch[-1] > 0)
+    Gbatch = W[-1].T @ Gbatch
+    Gbatch = Gbatch * np.array(X_batch[-1] > 0)
 
 
 
 
+    print("KKKKK",len(gradientGammavect),k)
 
+    for l in range(k-1,1,-1):
 
-    for l in range(k,2,-1):
+        #Compute gradient for the scale and offset parameters for layer l
+        gradientGammavect[l-1] = 1 / n_batch * (( Gbatch * s_hat[l-1] ) @ np.ones((n_batch, 1))) #correct????
+        gradientBetavect[l-1] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
-        gradientWvect[l-2] = 1 / n_batch * Gbatch @ X_batch[l-2].T + 2 * lambda_ * W[l-2]
+        #Propagate the gradients through the scale and shift
+        Gbatch = Gbatch * (gamma[l-1] @ np.ones((1, n_batch)))
 
-
-        gradientbvect[l-2] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
-
-        Gbatch = W[l-2].T @ Gbatch
-
-
+        #Propagate Gbatch through the batch normalization
         Gbatch = Gbatch * np.array(X_batch[l-2] > 0)  # (Hbatch > 0).astype(float)#[Hbatch > 0]
 
     gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
@@ -466,7 +468,7 @@ if __name__ == "__main__":
 
     m, d = 10, dataTr.shape[0]
     print(m)
-    k = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
+    Kend = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
 
     K1 = 20
     K2 = 25
@@ -479,7 +481,7 @@ if __name__ == "__main__":
 
     W2, b2 = create_Wb(K2, K1)
 
-    W3, b3 = create_Wb(k, K2)
+    W3, b3 = create_Wb(Kend, K2)
 
     #W4, b4 = create_Wb(k, K3)
 
