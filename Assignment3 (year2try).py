@@ -114,14 +114,14 @@ def EvaluateClassifierBonusBN(X, W, b ,gamma, beta):  # function 4  evaluates th
 
         s_tilde[l-1] = gamma[l-1] * s_hat[l-1]  + beta[l-1]  #correct
 
-        s[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
-        X_batch[l] = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
+        #s[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
+        X_batch[l] = np.maximum(0, s_tilde[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
 
-
-    s[-1] = W[-1] @ X_batch[-1] + b[-1]
+    #print("bing",np.shape(W[-1]) , np.shape( X_batch[-1] ), np.shape( b[-1]))
+    s_batch[-1] = W[-1] @ X_batch[-1] + b[-1]
     #X_batch[-1] = np.maximum(0, s[-1])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
 
-    p = np.exp(s[-1]) / np.sum(np.exp(s[-1]), axis=0, keepdims=True)  # softmax? could be wrong
+    p = np.exp(s_batch[-1]) / np.sum(np.exp(s_batch[-1]), axis=0, keepdims=True)  # softmax? could be wrong
 
     return X_batch, p
 
