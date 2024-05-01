@@ -47,7 +47,7 @@ def create_Wb(col, row):  # function 3 initialize the parameters of the model W 
 
     W = np.random.normal(0, 1 / np.sqrt(row), size=(col, row))
     b = np.zeros((col, 1))
-
+    print("size w and b", np.shape(W),np.shape(b))
     return W, b
 
 
@@ -79,6 +79,7 @@ def BatchNormalize(s_batch_l,my_l,v_l):
     part1 = np.diag(1 / np.sqrt(v_l + 1e-12))
     part2 = s_batch_l - my_l
 
+    print("()()", np.shape(part1), np.shape(part2))
     return np.dot(part1, part2)
 
 
@@ -106,13 +107,12 @@ def EvaluateClassifierBonusBN(X, W, b ,gamma, beta):  # function 4  evaluates th
 
         s_batch[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
 
+
         my[l-1] = s_batch[l-1].mean(axis=1).reshape(s_batch[l-1].shape[0], 1) #correct
         sigma[l-1] = s_batch[l-1].var(axis=1).reshape(s_batch[l-1].shape[0])  #correct
-
         s_hat[l-1] = BatchNormalize(s_batch[l-1],my[l-1],sigma[l-1])   #correct
 
-        print("PROBLEM",np.shape(gamma[l-1]),np.shape(s_hat[l-1]),np.shape(beta[l-1])) #PROBLEM
-        s_tilde[l-1] = gamma[l-1] * s_hat[l-1] + beta[l-1]
+        s_tilde[l-1] = gamma[l-1] * s_hat[l-1]  + beta[l-1]  #correct
 
         s[l-1] = W[l-1] @ X_batch[l-1] + b[l-1]
         X_batch[l] = np.maximum(0, s[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
@@ -450,21 +450,26 @@ if __name__ == "__main__":
 
 
     m, d = 10, dataTr.shape[0]
-    K1 = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
+    print(m)
+    k = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
 
-    W1, b1 = create_Wb(m, d)  # m = 50 numb hidden layers , d = 3072
-    K2 = 50
-    K3 = 40
-    K = [K3,K2,K1]
+    K1 = 20
+    K2 = 25
+    #K3 = 20
 
-    W2, b2 = create_Wb(K3, m)
 
-    W3, b3 = create_Wb(K2, K3)
+    K = [K1,K2]
 
-    W4, b4 = create_Wb(K1, K2)
+    W1, b1 = create_Wb(K1, d)  # m = 50 numb hidden layers , d = 3072
 
-    W = [W1, W2, W3,W4]
-    b = [b1, b2, b3, b4]
+    W2, b2 = create_Wb(K2, K1)
+
+    W3, b3 = create_Wb(k, K2)
+
+    #W4, b4 = create_Wb(k, K3)
+
+    W = [W1, W2, W3]
+    b = [b1, b2, b3]
 
 
     k = len(W)
@@ -484,6 +489,7 @@ if __name__ == "__main__":
 
 
     X = dataTrN
+    print(np.shape(X))
     y = np.array(labelsTr)  # reshape to 1,10000 and make array
     Y = np.eye(len(np.unique(y)))[y].T  # onehotencoded
 
@@ -497,7 +503,7 @@ if __name__ == "__main__":
 
 
     # TEST for if gradients are correct
-    testgradients()
+    #testgradients()
 
 
     # gridsearch
