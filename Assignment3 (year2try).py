@@ -151,6 +151,8 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
     n_batch = X.shape[1]
 
+
+
     # forward pass
     X_batch, Pbatch = EvaluateClassifierBonus(X, W, b)
 
@@ -194,25 +196,38 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
     gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
     gradientbvect[0] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
+    print("gradientWshape",np.shape(gradientWvect[0]))
     return gradientWvect, gradientbvect
 
 
 def BatchNormBackPass(Gbatch,s_batch,my, sigma):
-    n_batch = X.shape[1]
+    n_batch = s_batch.shape[0]
 
     eps = 1e-12
     sigma1 = ((sigma+eps)**-0.5).T
     sigma2 = ((sigma+eps)**-1.5).T
+    print(np.shape(Gbatch), np.shape(sigma1), np.shape(np.ones((n_batch,1))))
     G1 = Gbatch * (sigma1 @ np.ones((n_batch,1)))  #here fault!!!
     G2 = Gbatch * (sigma2 @ np.ones((n_batch,1)))
-    #D = s_batch
-def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta):  # P and Y should be batch
+    print(np.shape(s_batch), np.shape(my), np.shape(np.ones((n_batch,1))))
 
-    n_batch = X.shape[1]
+    D = s_batch - my
+    c = (G2 * D)
+
+    Gbatch = G1 - 1/n_batch * (G1) - 1/n_batch * D * c
+
+    return Gbatch
+
+
+def ComputeGradientsBN(Xbatch, Y, W, lambda_, gamma, beta):  # P and Y should be batch
+
+    n_batch = Xbatch.shape[1]
+
+    print("nbatch1", n_batch)
 
     # forward pass
     X_batch, Pbatch, X_batch, s_batch, s_tilde, s_hat, my, sigma =\
-        EvaluateClassifierBonusBN(X, W, b,gamma, beta)
+        EvaluateClassifierBonusBN(Xbatch, W, b,gamma, beta)
 
 
 
@@ -239,7 +254,8 @@ def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta):  # P and Y should be batc
 
     print("KKKKK",len(gradientGammavect),k)
 
-    for l in range(k-1,1,-1):
+    for l in range(k-1,0,-1):
+        print("k", k-1,"l",l)
 
         #Compute gradient for the scale and offset parameters for layer l
         gradientGammavect[l-1] = 1 / n_batch * (( Gbatch * s_hat[l-1] ) @ np.ones((n_batch, 1))) #correct????
@@ -251,9 +267,16 @@ def ComputeGradientsBN(X, Y, W, lambda_, gamma, beta):  # P and Y should be batc
         #Propagate Gbatch through the batch normalization
         Gbatch = BatchNormBackPass(Gbatch,s_batch[l-1],my[l-1], sigma[l-1])
 
-    gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
-    gradientbvect[0] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
+        #The gradients of J w.r.t. bias vector bl and Wl
+        gradientWvect[l-1] = 1 / n_batch * Gbatch @ X_batch[l-1].T + 2* lambda_ * W[l-1]
+        gradientbvect[l-1] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
+        #If l > 1 propagate Gbatch to the previous layer
+        if l > 1:
+            Gbatch = W[l-1].T @ Gbatch
+            Gbatch = Gbatch * np.array(X_batch[l-1] > 0)
+
+    print("gradientWshape",np.shape(gradientWvect[0]))
     return gradientWvect, gradientbvect
 
 
