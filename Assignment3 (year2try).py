@@ -79,7 +79,6 @@ def BatchNormalize(s_batch_l,my_l,v_l):
     part1 = np.diag(1 / np.sqrt(v_l + 1e-12))
     part2 = s_batch_l - my_l
 
-    print("()()", np.shape(part1), np.shape(part2))
     return np.dot(part1, part2)
 
 
@@ -118,6 +117,7 @@ def EvaluateClassifierBonusBN(X, W, b ,gamma, beta):  # function 4  evaluates th
         X_batch[l] = np.maximum(0, s_tilde[l-1])  # ReLu activation function  Xbatch^l gjord på l-1
 
     #print("bing",np.shape(W[-1]) , np.shape( X_batch[-1] ), np.shape( b[-1]))
+
     s_batch[-1] = W[-1] @ X_batch[-1] + b[-1]
     #X_batch[-1] = np.maximum(0, s[-1])  # s[0] ???? ReLu activation function  Xbatch^l gjord på l-1
 
@@ -196,7 +196,6 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
     gradientWvect[0] = 1 / n_batch * Gbatch @ X_batch[0].T # + lambda_ * W[0]
     gradientbvect[0] = 1 / n_batch * Gbatch @ np.ones((n_batch, 1))
 
-    print("gradientWshape",np.shape(gradientWvect[0]))
     return gradientWvect, gradientbvect
 
 
@@ -204,18 +203,40 @@ def BatchNormBackPass(Gbatch,s_batch,my, sigma):
     n_batch = s_batch.shape[0]
 
     eps = 1e-12
-    sigma1 = ((sigma+eps)**-0.5).T
-    sigma2 = ((sigma+eps)**-1.5).T
-    print(np.shape(Gbatch), np.shape(sigma1), np.shape(np.ones((n_batch,1))))
-    G1 = Gbatch * (sigma1 @ np.ones((n_batch,1)))  #here fault!!!
-    G2 = Gbatch * (sigma2 @ np.ones((n_batch,1)))
-    print(np.shape(s_batch), np.shape(my), np.shape(np.ones((n_batch,1))))
+
+    """
+    sigma1 = ((sigma+eps)**-0.5).T      #ok
+    sigma2 = ((sigma+eps)**-1.5).T      #ok
+    G1 = Gbatch * np.reshape(sigma1,(sigma1.shape[0],1)   #ok
+    G2 = Gbatch * np.reshape(sigma2,(sigma2.shape[0],1)   #ok
+
 
     D = s_batch - my
+
+
     c = (G2 * D)
 
     Gbatch = G1 - 1/n_batch * (G1) - 1/n_batch * D * c
 
+    
+    """
+
+
+    S1 = 1 / np.sqrt(np.mean(np.power((s_batch - my), 2), axis=1, keepdims=True))
+    S2 = np.power(S1, 3)
+
+
+    A = np.multiply(Gbatch, S1)
+    B = np.multiply(Gbatch, S2)
+
+    #print(G1)
+    D = np.subtract(s_batch, my)
+    c = np.sum(np.multiply(B, D), axis=1, keepdims=True)
+
+    foo = np.subtract(A, np.sum(A, axis=1, keepdims=True) / s_batch.shape[1])
+    bar = np.multiply(D, c) / s_batch.shape[1]
+
+    Gbatch = np.subtract(foo, bar)
     return Gbatch
 
 
@@ -223,11 +244,12 @@ def ComputeGradientsBN(Xbatch, Y, W, lambda_, gamma, beta):  # P and Y should be
 
     n_batch = Xbatch.shape[1]
 
-    print("nbatch1", n_batch)
+
 
     # forward pass
     X_batch, Pbatch, X_batch, s_batch, s_tilde, s_hat, my, sigma =\
         EvaluateClassifierBonusBN(Xbatch, W, b,gamma, beta)
+
 
 
 
@@ -252,10 +274,8 @@ def ComputeGradientsBN(Xbatch, Y, W, lambda_, gamma, beta):  # P and Y should be
 
 
 
-    print("KKKKK",len(gradientGammavect),k)
 
     for l in range(k-1,0,-1):
-        print("k", k-1,"l",l)
 
         #Compute gradient for the scale and offset parameters for layer l
         gradientGammavect[l-1] = 1 / n_batch * (( Gbatch * s_hat[l-1] ) @ np.ones((n_batch, 1))) #correct????
@@ -276,8 +296,7 @@ def ComputeGradientsBN(Xbatch, Y, W, lambda_, gamma, beta):  # P and Y should be
             Gbatch = W[l-1].T @ Gbatch
             Gbatch = Gbatch * np.array(X_batch[l-1] > 0)
 
-    print("gradientWshape",np.shape(gradientWvect[0]))
-    return gradientWvect, gradientbvect
+    return gradientWvect, gradientbvect, gradientGammavect, gradientBetavect
 
 
 def compute_grads_num(X, Y, lambda_, h):
@@ -319,7 +338,7 @@ def compute_grads_num(X, Y, lambda_, h):
 
 
 
-def ComputeAccuracy(X, y, W, b):  # KORREKT function 6 compute accuracy on evaluation
+def ComputeAccuracy(X, y, W, b,gamma,beta,BatchNorm):  # KORREKT function 6 compute accuracy on evaluation
     """
     s1 = W[0] @ X + b[0]
     h = np.maximum(0, s1)  # ReLu activation function  Xbatch^l gjord på l-1
@@ -329,7 +348,10 @@ def ComputeAccuracy(X, y, W, b):  # KORREKT function 6 compute accuracy on evalu
 
     acc = np.sum(ypredict == y) / len(y)
     """
-    _, p = EvaluateClassifierBonus(X, W, b)
+    if BatchNorm:
+        _, p, _, _, _, _, _, _ = EvaluateClassifierBonusBN(X, W, b,gamma,beta)
+    else:
+        _, p = EvaluateClassifierBonus(X, W, b)
     ypredict = np.argmax(p, axis=0)
     acc = np.sum(ypredict == y) / len(y)
 
@@ -369,9 +391,9 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_
     n_batch = int(X.shape[0] / batch_s)
 
     eta = eta_min
-    for epoch in range(n_epochs):
+    for epoch in range(n_epochs): # in range(n_epochs):
 
-        print("Epoch number:", epoch, "  accuracy: ", round(ComputeAccuracy(X, y, W, b), 4), "LR eta: ", round(eta, 4))
+        print("Epoch number:", epoch, "  accuracy: ", round(ComputeAccuracy(X, y, W, b,gamma,beta,BatchNorm), 4), "LR eta: ", round(eta, 4))
 
         for j in range(2, int(X.shape[0] / n_batch)):
             j_start = (j - 1) * n_batch
@@ -381,16 +403,26 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_
             Ybatch = Y[:, range(j_start, j_end)]
 
             if BatchNorm:
-                [gradientWvect,gradientbvect] = ComputeGradientsBN(Xbatch, Ybatch, W, lambda_, gamma, beta,)     #Forward propagate and Backward to calc gradient
+                [gradientWvect, gradientbvect, gradientGammavect, gradientBetavect] = ComputeGradientsBN(Xbatch, Ybatch, W, lambda_, gamma, beta,)     #Forward propagate and Backward to calc gradient
             else:
 
                 [gradientWvect, gradientbvect] = ComputeGradients(Xbatch, Ybatch, W,lambda_)     #Forward propagate and Backward to calc gradient
 
-            for i in range(len(W)):
-                gradientWvect[i] = gradientWvect[i].reshape(-1, gradientWvect[i].shape[-1])
+            if BatchNorm:
+                for i in range(len(W)):
+                    gradientWvect[i] = gradientWvect[i].reshape(-1, gradientWvect[i].shape[-1])
 
-                W[i] = W[i] - eta * gradientWvect[i]                     # Update the parameters using the gradient.
-                b[i] = b[i] - eta * gradientbvect[i]
+                    W[i] = W[i] - eta * gradientWvect[i]  # Update the parameters using the gradient.
+                    b[i] = b[i] - eta * gradientbvect[i]
+                for i in range(len(W)-1):
+                    gamma[i] = gamma[i] - eta * gradientGammavect[i]
+                    beta[i] =  beta[i] - eta * gradientBetavect[i]
+            else:
+                for i in range(len(W)):
+                    gradientWvect[i] = gradientWvect[i].reshape(-1, gradientWvect[i].shape[-1])
+
+                    W[i] = W[i] - eta * gradientWvect[i]                     # Update the parameters using the gradient.
+                    b[i] = b[i] - eta * gradientbvect[i]
 
             [eta, t] = Cyclicalheta(eta_min, eta_max, ns, t)
 
@@ -403,8 +435,8 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_
                 updatesteps.append(t)
 
                 # print("cost: ", round(trainCostJ[-1], 3), "loss: ", round(trainLossJ[-1], 3))
-                acctrainlist.append(ComputeAccuracy(X, y, W, b))
-                accvallist.append(ComputeAccuracy(X_val, y_val, W, b))
+                acctrainlist.append(ComputeAccuracy(X, y, W, b,gamma,beta,BatchNorm))
+                accvallist.append(ComputeAccuracy(X_val, y_val, W, b,gamma,beta,BatchNorm))
 
             # print("acc on validation", accvallist[-1])
 
@@ -413,7 +445,10 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_
         Y = Y[:, idx]
         y = y[idx]
 
-    return W, b, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist, eta
+    if BatchNorm:
+        return W, b,gamma,beta, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist, eta
+    else:
+        return W, b,None,None, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist, eta
 
 
 def gridsearch(model, parameters):
@@ -501,7 +536,6 @@ if __name__ == "__main__":
 
 
     m, d = 10, dataTr.shape[0]
-    print(m)
     Kend = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
 
     K1 = 20
@@ -540,7 +574,6 @@ if __name__ == "__main__":
 
 
     X = dataTrN
-    print(np.shape(X))
     y = np.array(labelsTr)  # reshape to 1,10000 and make array
     Y = np.eye(len(np.unique(y)))[y].T  # onehotencoded
 
@@ -577,11 +610,11 @@ if __name__ == "__main__":
 
     # best value
 
-    [W, b, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist,
+    [W, b, gamma,beta, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist,
      eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm,
                            batch_s=100, n_epochs=30, lambda_=0.0045105, eta_min=1e-5, eta_max=1e-1, ns=500,
                            plotpercycle=10)
-    Accuracy = ComputeAccuracy(X_val, y_val, W, b)
+    Accuracy = ComputeAccuracy(X_val, y_val, W, b,gamma,beta,BatchNorm)
     print("best acc from randomsearch: ", Accuracy)
 
 
