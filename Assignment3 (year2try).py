@@ -200,43 +200,25 @@ def ComputeGradients(X, Y, W, lambda_):  # P and Y should be batch
 
 
 def BatchNormBackPass(Gbatch,s_batch,my, sigma):
-    n_batch = s_batch.shape[0]
+    n_batch = s_batch.shape[1]
 
     eps = 1e-12
 
-    """
-    sigma1 = ((sigma+eps)**-0.5).T      #ok
-    sigma2 = ((sigma+eps)**-1.5).T      #ok
-    G1 = Gbatch * np.reshape(sigma1,(sigma1.shape[0],1)   #ok
-    G2 = Gbatch * np.reshape(sigma2,(sigma2.shape[0],1)   #ok
 
 
-    D = s_batch - my
+    sigma1 = ((sigma + eps) ** -0.5).T  # ok
+    sigma2 = ((sigma + eps) ** -1.5).T  # ok
+    G1 = Gbatch * np.reshape(sigma1, (sigma1.shape[0], 1))  # 1_n^T = reshape
+    G2 = Gbatch * np.reshape(sigma2, (sigma2.shape[0], 1))  # ok
+    Dmine = s_batch - my           #ok
+
+    c = G2 * Dmine
+
+    Gbatch = G1 - 1 / n_batch * np.sum(G1, axis=1, keepdims=True) - \
+    1 / n_batch * Dmine * np.sum(c, axis=1, keepdims=True)  # 1_n * 1_n^T = sum
 
 
-    c = (G2 * D)
 
-    Gbatch = G1 - 1/n_batch * (G1) - 1/n_batch * D * c
-
-    
-    """
-
-
-    S1 = 1 / np.sqrt(np.mean(np.power((s_batch - my), 2), axis=1, keepdims=True))
-    S2 = np.power(S1, 3)
-
-
-    A = np.multiply(Gbatch, S1)
-    B = np.multiply(Gbatch, S2)
-
-    #print(G1)
-    D = np.subtract(s_batch, my)
-    c = np.sum(np.multiply(B, D), axis=1, keepdims=True)
-
-    foo = np.subtract(A, np.sum(A, axis=1, keepdims=True) / s_batch.shape[1])
-    bar = np.multiply(D, c) / s_batch.shape[1]
-
-    Gbatch = np.subtract(foo, bar)
     return Gbatch
 
 
