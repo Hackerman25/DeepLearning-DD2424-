@@ -206,16 +206,16 @@ def BatchNormBackPass(Gbatch,s_batch,my, sigma):
 
 
 
-    sigma1 = ((sigma + eps) ** -0.5).T  # ok
-    sigma2 = ((sigma + eps) ** -1.5).T  # ok
-    G1 = Gbatch * np.reshape(sigma1, (sigma1.shape[0], 1))  # 1_n^T = reshape
-    G2 = Gbatch * np.reshape(sigma2, (sigma2.shape[0], 1))  # ok
-    Dmine = s_batch - my           #ok
+    sigma1 = ((sigma + eps) ** -0.5).T
+    sigma2 = ((sigma + eps) ** -1.5).T
+    G1 = Gbatch * np.reshape(sigma1, (sigma1.shape[0], 1))     # 1_n^T => reshape
+    G2 = Gbatch * np.reshape(sigma2, (sigma2.shape[0], 1))
+    Dmine = s_batch - my
 
     c = G2 * Dmine
 
     Gbatch = G1 - 1 / n_batch * np.sum(G1, axis=1, keepdims=True) - \
-    1 / n_batch * Dmine * np.sum(c, axis=1, keepdims=True)  # 1_n * 1_n^T = sum
+    1 / n_batch * Dmine * np.sum(c, axis=1, keepdims=True)     # 1_n * 1_n^T => sum
 
 
 
@@ -520,8 +520,8 @@ if __name__ == "__main__":
     m, d = 10, dataTr.shape[0]
     Kend = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
 
-    K1 = 20
-    K2 = 25
+    K1 = 50
+    K2 = 50
     #K3 = 20
 
 
@@ -594,7 +594,7 @@ if __name__ == "__main__":
 
     [W, b, gamma,beta, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist,
      eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm,
-                           batch_s=100, n_epochs=30, lambda_=0.0045105, eta_min=1e-5, eta_max=1e-1, ns=500,
+                           batch_s=100, n_epochs=30, lambda_=0.005, eta_min=1e-5, eta_max=1e-1, ns=500,
                            plotpercycle=10)
     Accuracy = ComputeAccuracy(X_val, y_val, W, b,gamma,beta,BatchNorm)
     print("best acc from randomsearch: ", Accuracy)
