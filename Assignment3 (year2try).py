@@ -47,7 +47,7 @@ def create_Wb(col, row):  # function 3 initialize the parameters of the model W 
 
     W = np.random.normal(0, 1 / np.sqrt(row), size=(col, row))    # He initialization
     b = np.zeros((col, 1))
-    print("size w and b", np.shape(W),np.shape(b))
+    #print("size w and b", np.shape(W),np.shape(b))
     return W, b
 
 
@@ -434,15 +434,15 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_
 
 
 def gridsearch(model, parameters):
-    global W
-    global b
-    global beta
-    global gamma
+
+
 
     bestacc = 0
     bestparams = 0
 
     for combination in itertools.product(*parameters.values()):
+        W, b, gamma, beta, K, k = initParams()
+
         batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle = combination
         [W, b, gamma,beta, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist, eta] = \
             model(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle)
@@ -459,10 +459,8 @@ def gridsearch(model, parameters):
 
 
 def randomsearch(model, parameters, randiterations):
-    global W
-    global b
-    global gamma
-    global beta
+
+    W, b, gamma, beta, K, k = initParams()
 
     bestacc = 0
     bestparams = 0
@@ -479,6 +477,8 @@ def randomsearch(model, parameters, randiterations):
 
         batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle = randlistparm
         print(randlistparm)
+
+        W, b, gamma, beta, K, k = initParams()
 
         [W, b, gamma,beta, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist, eta] = \
             model(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_s, n_epochs, lambda_, eta_min, eta_max, ns, plotpercycle)
@@ -507,6 +507,40 @@ def testgradients():
         print("Error b compare to numerical",np.average(gradientbvect_num[e] - gradientbvect[e]))
 
 
+def initParams():
+
+    # creating layers neural network
+
+    m, d = 10, dataTr.shape[0]
+    Kend = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
+
+    #  [50, 30, 20, 20, 10, 10, 10, 10]
+    K1 = 50
+    K2 = 50
+
+    K = [K1, K2]  # (#course layers)  = numb W and B
+
+    W1, b1 = create_Wb(K1, d)  # m = 50 numb hidden layers , d = 3072
+
+    W2, b2 = create_Wb(K2, K1)
+
+    W3, b3 = create_Wb(m, K2)
+
+    W = [W1, W2, W3]
+    b = [b1, b2, b3]
+
+    k = len(W)
+    gamma = []
+    beta = []
+    if BatchNorm:
+        for i in range(k - 1):
+            gamma.append(np.ones((K[i], 1)))
+            beta.append(np.zeros((K[i], 1)))  # GABAGO
+
+
+
+    return W,b,gamma, beta, K, k
+
 if __name__ == "__main__":
     BatchNorm = True
 
@@ -521,43 +555,7 @@ if __name__ == "__main__":
 
     # creating layers neural network
 
-
-    m, d = 10, dataTr.shape[0]
-    Kend = len(np.unique(np.array(labelsTr)))  # K = probabilities so 10
-
-    #  [50, 30, 20, 20, 10, 10, 10, 10]
-    K1 = 50
-    K2 = 50
-
-
-    K = [K1,K2]  # (#course layers)  = numb W and B
-
-    W1, b1 = create_Wb(K1, d)  # m = 50 numb hidden layers , d = 3072
-
-    W2, b2 = create_Wb(K2, K1)
-
-    W3, b3 = create_Wb(m, K2)
-
-
-
-    W = [W1, W2, W3]
-    b = [b1, b2, b3]
-
-
-    k = len(W)
-    gamma = []
-    beta = []
-    if BatchNorm:
-        for i in range(k-1):
-            gamma.append(np.ones((K[i],1)))
-            beta.append(np.zeros((K[i],1)))   #GABAGO
-
-
-    print("@@@", len(gamma),len(beta))
-
-
-
-
+    W,b,gamma, beta, K, k = initParams()
 
 
     X = dataTrN
@@ -582,7 +580,7 @@ if __name__ == "__main__":
 
 
     parameters = {"batch_s": [100], "n_epochs": [91],"lambda_": [0.1,0.05,0.01,0.005,0.001,0.0005], "eta_min": [1e-5],"eta_max": [1e-1],"ns": [(5*45000)/100], "plotpercycle": [10]}
-    [bestacc, bestparams, W, b,gamma, beta, trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist] = gridsearch(TrainMiniBatch, parameters)
+    [bestacc, bestparams, W, b,gamma, beta, trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist,eta] = gridsearch(TrainMiniBatch, parameters)
     print("best acc from gridsearch: ", bestacc, "bestparams: ", bestparams)
 
     """
