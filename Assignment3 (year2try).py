@@ -45,6 +45,7 @@ def normalizedata(dataTr):  # function 2 (normalize the data by std and mean)
 
 def create_Wb(col, row):  # function 3 initialize the parameters of the model W and b
 
+    #W = np.random.normal(0, 1e-4, size=(col, row))  # sensitivity test
     W = np.random.normal(0, 1 / np.sqrt(row), size=(col, row))    # He initialization
     b = np.zeros((col, 1))
     #print("size w and b", np.shape(W),np.shape(b))
@@ -375,6 +376,7 @@ def TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm, batch_
     eta = eta_min
     for epoch in range(n_epochs): # in range(n_epochs):
 
+
         print("Epoch number:", epoch, "  accuracy_train: ", round(ComputeAccuracy(X, y, W, b,gamma,beta,BatchNorm), 4), "LR eta: ", round(eta, 4))
 
         for j in range(2, int(X.shape[0] / n_batch)):
@@ -524,7 +526,7 @@ def initParams():
 
     W2, b2 = create_Wb(K2, K1)
 
-    W3, b3 = create_Wb(m, K2)
+    W3, b3 = create_Wb(Kend, K2)
 
     W = [W1, W2, W3]
     b = [b1, b2, b3]
@@ -578,11 +580,12 @@ if __name__ == "__main__":
 
     # gridsearch
 
-
-    parameters = {"batch_s": [100], "n_epochs": [91],"lambda_": [0.1,0.05,0.01,0.005,0.001,0.0005], "eta_min": [1e-5],"eta_max": [1e-1],"ns": [(5*45000)/100], "plotpercycle": [10]}
+    """
+    parameters = {"batch_s": [100], "n_epochs": [90],"lambda_": [0.003,0.002,0.001,0.009,0.0008,0.0007,0.0006], "eta_min": [1e-5],"eta_max": [1e-1],"ns": [(5*45000)/100], "plotpercycle": [10]}
     [bestacc, bestparams, W, b,gamma, beta, trainCostJ,validationCostJ,trainLossJ, validationLossJ,updatesteps,acctrainlist,accvallist,eta] = gridsearch(TrainMiniBatch, parameters)
     print("best acc from gridsearch: ", bestacc, "bestparams: ", bestparams)
-
+    
+    """
     """
     # random search
 
@@ -595,10 +598,10 @@ if __name__ == "__main__":
     """
 
     # best value
-    """
+
     [W, b, gamma,beta, trainCostJ, validationCostJ, trainLossJ, validationLossJ, updatesteps, acctrainlist, accvallist,
      eta] = TrainMiniBatch(y, X, Y, X_val, y_val, W, b, t,gamma, beta, BatchNorm,
-                           batch_s=100, n_epochs=91, lambda_=0.005, eta_min=1e-5, eta_max=1e-1, ns=(5*45000)/100,
+                           batch_s=100, n_epochs=90, lambda_=0.0008, eta_min=1e-5, eta_max=1e-1, ns=(5*45000)/100,
                            plotpercycle=10)
     Accuracy = ComputeAccuracy(X_val, y_val, W, b,gamma,beta,BatchNorm)
     print("best acc from randomsearch: ", Accuracy)
@@ -609,4 +612,3 @@ if __name__ == "__main__":
     visualisegraph(trainCostJ, validationCostJ, updatesteps, "cost")
     visualisegraph(trainLossJ, validationLossJ, updatesteps, "loss")
     visualisegraph(acctrainlist, accvallist, updatesteps, "accuracy")
-    """
