@@ -39,6 +39,31 @@ class RNN:
         self.W = np.random.normal(0, 1, size=(self.m, self.m)) * sig
         self.V = np.random.normal(0, 1, size=(self.K, self.m)) * sig
 
+
+    def eval_RNN(self,h0,x0,n):
+        b = RNN.b
+        c = RNN.c
+
+        U = RNN.U
+        W = RNN.W
+        V = RNN.V
+
+        #eq 1-4
+        xnext = x0
+
+        a_t = W @ h0 + U @ xnext + b
+        h_t = np.tanh(a_t)
+        o_t = V @ h_t + c
+        p_t = np.exp(o_t[-1]) / np.sum(np.exp(o_t[-1]), axis=0, keepdims=True) #softmax
+
+        return a_t,h_t,o_t,p_t
+
+    def synth_text(self,h0, x0, n):
+
+
+        for t in range(n):
+
+
 if __name__ == "__main__":
 
 
@@ -63,5 +88,8 @@ if __name__ == "__main__":
 
     RNN = RNN()
 
+    #03
+
+    #eval_RNN(h0, x0, n)
 
 
