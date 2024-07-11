@@ -24,6 +24,21 @@ def createmappingfunc(file):
     return my_map, inv_map
 
 
+def OneHotEncoding(data, mymap,begin, end):
+    K = len(mymap)
+    N = end - begin
+
+    EncodedData = np.zeros((K,N))
+
+
+    for i in range(N):
+        EncodedData[mymap[data[begin + i]], i] = 1
+
+
+
+    return EncodedData
+
+
 class RNN:
     def __init__(self,m= 100,eta= 0.1,seq_length= 25):
         self.m = m
@@ -60,8 +75,21 @@ class RNN:
 
     def synth_text(self,h0, x0, n):
 
-
+        Y = np.zeros((self.K, n))
         for t in range(n):
+            a_t,h_t,o_t,p_t = RNN.eval_RNN(self, h0, x0, n)
+
+            cp = np.cumsum(p_t)
+            a = np.random.uniform(0,1,1)[0]
+
+            x0 = np.zeros(x0.shape)
+            x0[a] = 1
+            Y[a, t] = 1
+        return Y
+
+    def CompGrads(self):
+
+        return None
 
 
 if __name__ == "__main__":
@@ -83,12 +111,21 @@ if __name__ == "__main__":
     print(my_map[data[0]])
     print(inv_map[0])
 
+    seq_length = 10
+    X_chars = OneHotEncoding(data,my_map,begin = 0, end = seq_length-1)
+    Y_chars = OneHotEncoding(data,my_map,begin = 1, end = seq_length)
+
+
+    print(X_chars)
+    print(Y_chars)
 
     #02
 
     RNN = RNN()
 
     #03
+
+
 
     #eval_RNN(h0, x0, n)
 
