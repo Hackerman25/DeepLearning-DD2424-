@@ -40,9 +40,10 @@ def OneHotEncoding(data, mymap,begin, end):
 
 
 class RNN:
-    def __init__(self,m= 100,eta= 0.1,seq_length= 25):
+    def __init__(self,m,K,eta= 0.1,seq_length= 25):
+        print(K,"ddk")
         self.m = m
-        self.K = m
+        self.K = K
         self.eta = eta
         self.seq_length = seq_length
 
@@ -66,10 +67,13 @@ class RNN:
         #eq 1-4
         xnext = x0
 
+        print(W.shape,h0.shape, U.shape, xnext.shape)  # (100, 100) (100, 1) (100, 83) (83, 1)
         a_t = W @ h0 + U @ xnext + b
         h_t = np.tanh(a_t)
         o_t = V @ h_t + c
-        p_t = np.exp(o_t[-1]) / np.sum(np.exp(o_t[-1]), axis=0, keepdims=True) #softmax
+
+        a = np.exp(x0 - np.max(x0, axis=0))
+        p_t = a / a.sum(axis=0) #softmax
 
         return a_t,h_t,o_t,p_t
 
@@ -77,14 +81,13 @@ class RNN:
 
         Y = np.zeros((self.K, n))
         for t in range(n):
-            a_t,h_t,o_t,p_t = RNN.eval_RNN(self, h0, x0, n)
+            a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0, n)
 
             cp = np.cumsum(p_t)
-            a = np.random.uniform(0,1,1)[0]
-
+            idx = np.random.choice(self.K, p=p_t.flat)
             x0 = np.zeros(x0.shape)
-            x0[a] = 1
-            Y[a, t] = 1
+            x0[idx] = 1
+            Y[idx, t] = 1
         return Y
 
     def CompGrads(self):
@@ -116,16 +119,21 @@ if __name__ == "__main__":
     Y_chars = OneHotEncoding(data,my_map,begin = 1, end = seq_length)
 
 
-    print(X_chars)
-    print(Y_chars)
+    print(X_chars.shape)
+    print(Y_chars.shape)
 
     #02
 
-    RNN = RNN()
+    RNN = RNN(K = X_chars.shape[0], m = 100)
 
     #03
 
+    #a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0, 20)
+    h_prev = np.zeros((RNN.m,1))
+    result = RNN.synth_text(h_prev, X_chars[:, 0], 20)
 
+    print(result)
+    print(inv_map[result])  # ???? dont know this part to get letters
 
     #eval_RNN(h0, x0, n)
 
