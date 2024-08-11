@@ -56,7 +56,7 @@ class RNN:
         self.V = np.random.normal(0, 1, size=(self.K, self.m)) * sig
 
 
-    def eval_RNN(self,h0,x0,n):
+    def eval_RNN(self,h0,x0):
         b = RNN.b
         c = RNN.c
 
@@ -69,8 +69,11 @@ class RNN:
 
         print(W.shape,h0.shape, U.shape, xnext.shape)  # (100, 100) (100, 1) (100, 83) (83, 1)
         a_t = W @ h0 + U @ xnext + b
+
         h_t = np.tanh(a_t)
         o_t = V @ h_t + c
+
+
 
         a = np.exp(x0 - np.max(x0, axis=0))
         p_t = a / a.sum(axis=0) #softmax
@@ -81,7 +84,8 @@ class RNN:
 
         Y = np.zeros((self.K, n))
         for t in range(n):
-            a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0, n)
+            a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0)
+
 
             cp = np.cumsum(p_t)
             idx = np.random.choice(self.K, p=p_t.flat)
@@ -90,10 +94,39 @@ class RNN:
             Y[idx, t] = 1
         return Y
 
-    def CompGrads(self):
+    def CompGrads(self,X_chars,Y_chars,h0):
+
+        seq_length = X_chars.shape[1]
+
+        a = np.zeros((seq_length,RNN.m,RNN.m))
+        h = np.zeros((seq_length,RNN.m,RNN.m))
+        o = np.zeros((seq_length,X_chars.shape[0],RNN.m))
+        p = np.zeros((seq_length,X_chars.shape[0]))
+        h[-1] = h0
+        loss = 0
+
+
+
+        #forward pass
+        for t in range(seq_length):
+            #eq 1-4
+            a[t], h[t], o[t], p[t] = self.eval_RNN(h[t-1], X_chars[:,t])
+
+            print(Y_chars.shape,p[t].shape)
+            loss += -np.log(Y_chars.T @ p[t])
+        #backward   pass
+        
 
         return None
 
+def printsentence(result):
+    index = np.where(result == 1)[0]
+
+    print("sentence:")
+    for letter in index:
+
+        print(inv_map[letter], end = "")  # ???? dont know this part to get letters
+    print("\n")
 
 if __name__ == "__main__":
 
@@ -107,12 +140,6 @@ if __name__ == "__main__":
     print(numbunique)
 
     my_map, inv_map = createmappingfunc(data)
-    print(my_map)
-    print(inv_map)
-
-
-    print(my_map[data[0]])
-    print(inv_map[0])
 
     seq_length = 10
     X_chars = OneHotEncoding(data,my_map,begin = 0, end = seq_length-1)
@@ -132,9 +159,9 @@ if __name__ == "__main__":
     h_prev = np.zeros((RNN.m,1))
     result = RNN.synth_text(h_prev, X_chars[:, 0], 20)
 
-    print(result)
-    print(inv_map[result])  # ???? dont know this part to get letters
-
-    #eval_RNN(h0, x0, n)
+    printsentence(result)
 
 
+    print(X_chars.shape,Y_chars.shape)
+
+    RNN.CompGrads(X_chars, Y_chars, h_prev)
