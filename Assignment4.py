@@ -98,12 +98,17 @@ class RNN:
 
         seq_length = X_chars.shape[1]
 
-        a = np.zeros((seq_length,RNN.m,RNN.m))
-        h = np.zeros((seq_length,RNN.m,RNN.m))
-        o = np.zeros((seq_length,X_chars.shape[0],RNN.m))
-        p = np.zeros((seq_length,X_chars.shape[0]))
+        a = np.zeros((seq_length,RNN.m,RNN.m))  # m x m = 100 x 100
+        h = np.zeros((seq_length,RNN.m,RNN.m))  # m x m
+        o = np.zeros((seq_length,X_chars.shape[0],RNN.m))    # k x m = 83 x 100
+        p = np.zeros((seq_length,X_chars.shape[0]))          # k
         h[-1] = h0
         loss = 0
+
+        grad_o = np.zeros((seq_length,X_chars.shape[0]))
+        grad_o2 = np.zeros((seq_length,X_chars.shape[0],RNN.m))
+
+        grad_U, grad_W, grad_V, grad_b, grad_c = np.zeros_like(self.U), np.zeros_like(self.W), np.zeros_like(self.V), np.zeros_like(self.b), np.zeros_like(self.c)
 
 
 
@@ -115,7 +120,12 @@ class RNN:
             print(Y_chars.shape,p[t].shape)
             loss += -np.log(Y_chars.T @ p[t])
         #backward   pass
-        
+        for t in reversed(range(seq_length)):
+
+            print(Y_chars.shape, p.shape)
+            grad_o[t] = -(Y_chars[:,t]-p[t]).T  # k x m
+            print(grad_o[t].shape, h[t].shape, "dddd")
+            grad_V += grad_o[t] @ h[t]       #k x m
 
         return None
 
