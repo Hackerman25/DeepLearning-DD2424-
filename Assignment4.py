@@ -56,7 +56,8 @@ class RNN:
         self.V = np.random.normal(0, 1, size=(self.K, self.m)) * sig
 
 
-    def eval_RNN(self,h0,x0):
+    def eval_RNN(self,h0,x0):   #should be correct
+        print(h0.shape, x0.shape, "shapes")
         b = RNN.b
         c = RNN.c
 
@@ -65,10 +66,12 @@ class RNN:
         V = RNN.V
 
         #eq 1-4
-        xnext = x0
+        xnext = x0  # 83 x 1
 
-        print(W.shape,h0.shape, U.shape, xnext.shape)  # (100, 100) (100, 1) (100, 83) (83, 1)
-        a_t = W @ h0 + U @ xnext + b
+
+        xnext = np.reshape(xnext, (xnext.shape[0], 1))
+        a_t = W @ h0 + U @ xnext + b  # 100x100  x  100x1  +  100x83  x  83x1
+        print(a_t.shape, "djdjd")
 
         h_t = np.tanh(a_t)
         o_t = V @ h_t + c
@@ -77,7 +80,10 @@ class RNN:
 
         a = np.exp(x0 - np.max(x0, axis=0))
         p_t = a / a.sum(axis=0) #softmax
+        p_t = np.reshape(p_t, (p_t.shape[0], 1))
 
+
+        print(a_t.shape, h_t.shape, o_t.shape, p_t.shape, "dkdld")
         return a_t,h_t,o_t,p_t
 
     def synth_text(self,h0, x0, n):
@@ -98,14 +104,16 @@ class RNN:
 
         seq_length = X_chars.shape[1]
 
-        a = np.zeros((seq_length,RNN.m,RNN.m))  # m x m = 100 x 100
-        h = np.zeros((seq_length,RNN.m,RNN.m))  # m x m
-        o = np.zeros((seq_length,X_chars.shape[0],RNN.m))    # k x m = 83 x 100
-        p = np.zeros((seq_length,X_chars.shape[0]))          # k
+        a = np.zeros((seq_length,RNN.m,RNN.m))  #9 x m x m = 100 x 100
+        h = np.zeros((seq_length,RNN.m,1))      #9 x m x 1
+        o = np.zeros((seq_length,X_chars.shape[0],RNN.m))    # 9 x k x m = 83 x 100
+        p = np.zeros((seq_length,X_chars.shape[0],1))          # 9 x k
         h[-1] = h0
+
+
         loss = 0
 
-        grad_o = np.zeros((seq_length,X_chars.shape[0]))
+        grad_o = np.zeros((seq_length,X_chars.shape[0]))  #9 x 83
         grad_o2 = np.zeros((seq_length,X_chars.shape[0],RNN.m))
 
         grad_U, grad_W, grad_V, grad_b, grad_c = np.zeros_like(self.U), np.zeros_like(self.W), np.zeros_like(self.V), np.zeros_like(self.b), np.zeros_like(self.c)
@@ -115,17 +123,24 @@ class RNN:
         #forward pass
         for t in range(seq_length):
             #eq 1-4
+            print(h.shape, "dodo")
             a[t], h[t], o[t], p[t] = self.eval_RNN(h[t-1], X_chars[:,t])
-
+            # 100 x 1
             print(Y_chars.shape,p[t].shape)
             loss += -np.log(Y_chars.T @ p[t])
         #backward   pass
         for t in reversed(range(seq_length)):
 
-            print(Y_chars.shape, p.shape)
-            grad_o[t] = -(Y_chars[:,t]-p[t]).T  # k x m
+            print(Y_chars[:,t].shape, p[t].shape, "gab")
+            grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T  # k x m
             print(grad_o[t].shape, h[t].shape, "dddd")
-            grad_V += grad_o[t] @ h[t]       #k x m
+
+            #reshaped_array = np.reshape(array, (83, 1))
+            grad_V += np.reshape(grad_o[t], (grad_o[t].shape[0], 1)) @ h[t].T       #k x m  = 83 x 100
+            print(grad_V.shape, "dkdkda")
+
+            print(grad_c.shape,"dkdkdk", grad_o[t].shape)
+            grad_c += np.reshape(grad_o[t], (grad_o[t].shape[0], 1))  # (K,1)
 
         return None
 
@@ -167,6 +182,7 @@ if __name__ == "__main__":
 
     #a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0, 20)
     h_prev = np.zeros((RNN.m,1))
+
     result = RNN.synth_text(h_prev, X_chars[:, 0], 20)
 
     printsentence(result)

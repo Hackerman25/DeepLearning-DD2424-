@@ -82,6 +82,8 @@ class RecurrentNeuralNetwork():
         h = 1e-4
         self.init_parameters(sig=0.01)
         h0 = np.zeros((self.m, 1))
+
+
         grads0, _, _ = self.compute_gradients(X, Y, h0)
         gu0, gw0, gv0, gb0, gc0 = grads0['U'], grads0['W'], grads0['V'], grads0['b'], grads0['c']
         epsilon = np.finfo(np.float64).eps
@@ -126,6 +128,7 @@ class RecurrentNeuralNetwork():
         self.params['V'] = np.random.normal(0.0, sig, (self.K, self.m))
 
     def evaluate_rnn(self, h0, x):
+        print(h0.shape, x.shape, "shapes")
         """
         Parameters:
             h0: initial hidden states
@@ -141,9 +144,13 @@ class RecurrentNeuralNetwork():
 
         print(self.params['W'].shape, h0.shape, self.params['U'].shape, x.shape)
         a = np.matmul(self.params['W'], h0) + np.matmul(self.params['U'], x) + self.params['b']  # (m,1)
+        print("gabag", a.shape)
         h = np.tanh(a)  # (m,1)
         o = np.matmul(self.params['V'], h) + self.params['c']  # (K,1)
         p = softmax(o)  # (K,1)
+
+        print(a.shape, h.shape, o.shape, p.shape, "dkdld")
+
         return a, h, o, p
 
     def synthesize_text(self, h0, x0, n):
@@ -195,10 +202,12 @@ class RecurrentNeuralNetwork():
         # forward-pass
         for t in range(seq_len):
             a[t], h[t], o[t], p[t] = self.evaluate_rnn(h[t - 1], X[:, t])  # (m,1), (m,1), (K,1), (K,1)
+
             l += -np.log(np.matmul(Y[:, t].reshape(Y.shape[0], 1).T, p[t]))  # (1,1)
         # backward-pass
         for t in reversed(range(seq_len)):
             grad_o[t] = -(Y[:, t].reshape(Y.shape[0], 1) - p[t]).T  # (1,K)
+            print(grad_o[t].shape, h[t].shape, "gab")
             grad_V += np.matmul(grad_o[t].T, h[t].T)  # (K,m)
             grad_c += grad_o[t].T  # (K,1)
             if t == seq_len - 1:
@@ -373,6 +382,7 @@ class RecurrentNeuralNetwork():
                     print('t:', t, 'smooth_loss:', smooth_loss[0][0])
 
                 if t % 10000 == 0:
+
                     Y_t = self.synthesize_text(hprev, X[:, 0], 200)
                     text = ''
                     for i in range(Y_t.shape[1]):
@@ -383,6 +393,7 @@ class RecurrentNeuralNetwork():
                 t += 1
 
         X = onehot_conversion(compile_output, 0, n - 1)
+
 
         Y_t = self.synthesize_text(hprev, X[:, 0], 1000)
         text = ''
