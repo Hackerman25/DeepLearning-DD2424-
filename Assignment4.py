@@ -1,7 +1,7 @@
 import numpy as np
 
 def getdata():
-    fileurl = r"C:\Users\marcu\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
+    fileurl = r"C:\Users\Marcus\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
     file = open(fileurl, "r")
 
 
@@ -32,7 +32,7 @@ def OneHotEncoding(data, mymap,begin, end):
 
 
     for i in range(N):
-        EncodedData[mymap[data[begin + i]], i] = 1
+        EncodedData[mymap[data[begin + i]],i] = 1
 
 
 
@@ -57,7 +57,7 @@ class RNN:
 
 
     def eval_RNN(self,h0,x0):   #should be correct
-        print(h0.shape, x0.shape, "shapes")
+
         b = RNN.b
         c = RNN.c
 
@@ -69,12 +69,13 @@ class RNN:
         xnext = x0  # 83 x 1
 
 
-        xnext = np.reshape(xnext, (xnext.shape[0], 1))
-        a_t = W @ h0 + U @ xnext + b  # 100x100  x  100x1  +  100x83  x  83x1
-        print(a_t.shape, "djdjd")
+        #xnext = np.reshape(xnext, (xnext.shape[0], 1))
 
-        h_t = np.tanh(a_t)
-        o_t = V @ h_t + c
+        a_t = W @ h0 + U @ xnext[:,np.newaxis] + b  # 100x100  x  100x1  +  100x83  x  83x1       #CORRECT
+
+        h_t = np.tanh(a_t)                                                                        #CORRECT
+        o_t = V @ h_t + c                                                                         #CORRECT
+
 
 
 
@@ -83,14 +84,15 @@ class RNN:
         p_t = np.reshape(p_t, (p_t.shape[0], 1))
 
 
-        print(a_t.shape, h_t.shape, o_t.shape, p_t.shape, "dkdld")
         return a_t,h_t,o_t,p_t
 
     def synth_text(self,h0, x0, n):
 
         Y = np.zeros((self.K, n))
         for t in range(n):
+            print("x0", x0.shape)
             a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0)
+
 
 
             cp = np.cumsum(p_t)
@@ -107,7 +109,7 @@ class RNN:
         a = np.zeros((seq_length,RNN.m,RNN.m))  #9 x m x m = 100 x 100
         h = np.zeros((seq_length,RNN.m,1))      #9 x m x 1
         o = np.zeros((seq_length,X_chars.shape[0],RNN.m))    # 9 x k x m = 83 x 100
-        p = np.zeros((seq_length,X_chars.shape[0],1))          # 9 x k
+        p = np.zeros((seq_length,X_chars.shape[0],1))          # 9 x k x 1
         h[-1] = h0
 
 
@@ -123,24 +125,26 @@ class RNN:
         #forward pass
         for t in range(seq_length):
             #eq 1-4
-            print(h.shape, "dodo")
+
             a[t], h[t], o[t], p[t] = self.eval_RNN(h[t-1], X_chars[:,t])
+            print(a[t].shape, h[t].shape, o[t].shape, p[t].shape, "HHHHHHHHHHH")
             # 100 x 1
-            print(Y_chars.shape,p[t].shape)
+
             loss += -np.log(Y_chars.T @ p[t])
         #backward   pass
+
+
         for t in reversed(range(seq_length)):
 
-            print(Y_chars[:,t].shape, p[t].shape, "gab")
-            grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T  # k x m
-            print(grad_o[t].shape, h[t].shape, "dddd")
+            grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T               # k x 1
+            print(grad_o[t].shape, h[t].shape,  "dddd")
 
             #reshaped_array = np.reshape(array, (83, 1))
             grad_V += np.reshape(grad_o[t], (grad_o[t].shape[0], 1)) @ h[t].T       #k x m  = 83 x 100
             print(grad_V.shape, "dkdkda")
 
             print(grad_c.shape,"dkdkdk", grad_o[t].shape)
-            grad_c += np.reshape(grad_o[t], (grad_o[t].shape[0], 1))  # (K,1)
+            grad_c += np.reshape(grad_o[t], (grad_o[t].shape[0], 1))                 #k x 1
 
         return None
 
@@ -183,6 +187,7 @@ if __name__ == "__main__":
     #a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0, 20)
     h_prev = np.zeros((RNN.m,1))
 
+    print(X_chars.shape, "x shape")
     result = RNN.synth_text(h_prev, X_chars[:, 0], 20)
 
     printsentence(result)
