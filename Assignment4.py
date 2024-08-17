@@ -118,6 +118,10 @@ class RNN:
         grad_o = np.zeros((seq_length,X_chars.shape[0]))  #9 x 83
         grad_o2 = np.zeros((seq_length,X_chars.shape[0],RNN.m))
 
+        grad_h = np.zeros_like(h)
+
+        grad_a = np.zeros_like(a)
+
         grad_U, grad_W, grad_V, grad_b, grad_c = np.zeros_like(self.U), np.zeros_like(self.W), np.zeros_like(self.V), np.zeros_like(self.b), np.zeros_like(self.c)
 
 
@@ -137,14 +141,23 @@ class RNN:
         for t in reversed(range(seq_length)):
 
             grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T               # k x 1
-            print(grad_o[t].shape, h[t].shape,  "dddd")
 
             #reshaped_array = np.reshape(array, (83, 1))
             grad_V += np.reshape(grad_o[t], (grad_o[t].shape[0], 1)) @ h[t].T       #k x m  = 83 x 100
-            print(grad_V.shape, "dkdkda")
 
-            print(grad_c.shape,"dkdkdk", grad_o[t].shape)
             grad_c += np.reshape(grad_o[t], (grad_o[t].shape[0], 1))                 #k x 1
+
+            if t == seq_length-1:
+                print(grad_o.shape, RNN.V.shape, "dididia")
+                grad_h[t] = grad_o[t] @ RNN.V                           #CHANGE GRAD h ???
+                grad_a[t] = grad_h[t] @ np.diag(1-np.tanh(a[t])**2)
+
+
+            else:
+                grad_h[t] = grad_o[t] @ RNN.V + grad_a[t+1] @ RNN.W
+                grad_a[t] = grad_h[t] @ np.diag(1 - np.tanh(a[t]) ** 2)
+
+
 
         return None
 
