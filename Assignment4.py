@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 def getdata():
     fileurl = r"C:\Users\Marcus\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
@@ -65,11 +66,14 @@ class RNN:
         W = RNN.W
         V = RNN.V
 
+
         #eq 1-4
         xnext = x0  # 83 x 1
 
 
         #xnext = np.reshape(xnext, (xnext.shape[0], 1))
+
+        print(W.shape, h0.shape, "ddda")
 
         a_t = W @ h0 + U @ xnext[:,np.newaxis] + b  # 100x100  x  100x1  +  100x83  x  83x1       #CORRECT
 
@@ -106,7 +110,7 @@ class RNN:
 
         seq_length = X_chars.shape[1]
 
-        a = np.zeros((seq_length,RNN.m,RNN.m))  #9 x m x m = 100 x 100
+        a = np.zeros((seq_length,RNN.m,1))  #9 x m x m = 100 x 1
         h = np.zeros((seq_length,RNN.m,1))      #9 x m x 1
         o = np.zeros((seq_length,X_chars.shape[0],RNN.m))    # 9 x k x m = 83 x 100
         p = np.zeros((seq_length,X_chars.shape[0],1))          # 9 x k x 1
@@ -115,7 +119,7 @@ class RNN:
 
         loss = 0
 
-        grad_o = np.zeros((seq_length,X_chars.shape[0]))  #9 x 83
+        grad_o = np.zeros((seq_length,1,X_chars.shape[0]))  #9 x 1 x 83
         grad_o2 = np.zeros((seq_length,X_chars.shape[0],RNN.m))
 
         grad_h = np.zeros_like(h)
@@ -140,26 +144,38 @@ class RNN:
 
         for t in reversed(range(seq_length)):
 
-            grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T               # k x 1
+            grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T               # 1 x k   GOOD
+            print("grad o @@@@@@@@@@@@@@@@@@@@ ", grad_o.shape)
 
             #reshaped_array = np.reshape(array, (83, 1))
-            grad_V += np.reshape(grad_o[t], (grad_o[t].shape[0], 1)) @ h[t].T       #k x m  = 83 x 100
 
-            grad_c += np.reshape(grad_o[t], (grad_o[t].shape[0], 1))                 #k x 1
+            grad_V += grad_o[t].T @ h[t].T       #k x m  = 83 x 100                                    GOOD
+
+            grad_c += grad_o[t].T          #k x 1                                                      GOOD
 
             if t == seq_length-1:
-                print(grad_o.shape, RNN.V.shape, "dididia")
-                grad_h[t] = grad_o[t] @ RNN.V                           #CHANGE GRAD h ???
-                grad_a[t] = grad_h[t] @ np.diag(1-np.tanh(a[t])**2)
+
+                grad_h[t] = ( grad_o[t] @ RNN.V ).T                  #m x 1 =  (83,)   @   (83, 100)   = 83 x 1 (with added newaxis)
+                grad_a[t] = grad_h[t] @ np.diag(1-np.tanh(a[t])**2)[:,np.newaxis]     #m x 1 = 100 x 1 =   100 x 1  @  (1,) (with new axis) =   100 x 1
 
 
             else:
-                grad_h[t] = grad_o[t] @ RNN.V + grad_a[t+1] @ RNN.W
-                grad_a[t] = grad_h[t] @ np.diag(1 - np.tanh(a[t]) ** 2)
+                grad_h[t] = (grad_o[t] @ RNN.V).T + RNN.W @ grad_a[t+1]                  #m x 1 =  (83,)  @  (83,100) + (100,1) @ (100,100)
+                grad_a[t] = grad_h[t] @ np.diag(1-np.tanh(a[t])**2)[:,np.newaxis]
+
+            print(grad_a[t].T.shape, h[t - 1].T.shape, "ttttttttttttttttttttT")
+            grad_W += grad_a[t] @ h[t - 1].T  # (m,m)
+
+            print(grad_a[t].shape, X_chars[:, t].reshape(X_chars.shape[0], 1).T.shape)
+            grad_U += grad_a[t] @ X_chars[:, t].reshape(X_chars.shape[0], 1).T  # (m,K)
+            grad_b += grad_a[t]  # (m,1)
 
 
+        #grad_U, grad_W, grad_V, grad_b, grad_c = np.clip(grad_U, -5, 5), np.clip(grad_W, -5, 5) ,np.clip(grad_V, -5, 5), np.clip(grad_b, -5, 5) , np.clip(grad_c, -5, 5)
 
-        return None
+        hprev = h[seq_length - 1]
+
+        return grad_U, grad_W, grad_V, grad_b, grad_c, loss, hprev
 
 def printsentence(result):
     index = np.where(result == 1)[0]
@@ -169,6 +185,37 @@ def printsentence(result):
 
         print(inv_map[letter], end = "")  # ???? dont know this part to get letters
     print("\n")
+
+
+
+def computeGrads_Num(rnn, x, y, h = 1e-5):
+    res_rnn = copy.deepcopy(rnn)
+    m = rnn.m
+    h_prev = np.zeros((m,1))
+    for idx, att in enumerate(['b', 'c', 'U', 'W', 'V']):
+        grad = np.zeros(getattr(rnn, att).shape)
+        for i in range(grad.shape[0]):
+            for j in range(grad.shape[1]):
+                rnn_try = copy.deepcopy(rnn)
+                aux = np.copy(getattr(rnn_try, att))
+                aux[i, j] -= h
+                setattr(rnn_try, att, aux)
+                #p, _, _ = rnn_try.forward(h_prev, x)
+                #l1 = rnn_try.loss(y, p)
+                grad_U, grad_W, grad_V, grad_b, grad_c, loss, hprev = CompGrads(self, X_chars, Y_chars, h0)
+
+                rnn_try = copy.deepcopy(rnn)
+                aux = np.copy(getattr(rnn_try, att))
+                aux[i, j] += h
+                setattr(rnn_try, att, aux)
+                p, _, _ = rnn_try.forward(h_prev, x)
+                l2 = rnn_try.loss(y, p)
+                grad[i, j] = (l2 - l1) / (2 * h)
+        setattr(res_rnn, "grad_"+att, grad)
+
+    return res_rnn
+
+
 
 if __name__ == "__main__":
 
@@ -208,4 +255,6 @@ if __name__ == "__main__":
 
     print(X_chars.shape,Y_chars.shape)
 
-    RNN.CompGrads(X_chars, Y_chars, h_prev)
+    grad_U, grad_W, grad_V, grad_b, grad_c, loss, hprev = RNN.CompGrads(X_chars, Y_chars, h_prev)
+
+    computeGrads_Num(RNN, X_chars, Y_chars)
