@@ -73,7 +73,7 @@ class RNN:
 
         #xnext = np.reshape(xnext, (xnext.shape[0], 1))
 
-        print(W.shape, h0.shape, "ddda")
+        print(W.shape, h0.shape, U.shape, xnext[:,np.newaxis].shape ,b.shape , "ddda")
 
         a_t = W @ h0 + U @ xnext[:,np.newaxis] + b  # 100x100  x  100x1  +  100x83  x  83x1       #CORRECT
 
@@ -138,7 +138,8 @@ class RNN:
             print(a[t].shape, h[t].shape, o[t].shape, p[t].shape, "HHHHHHHHHHH")
             # 100 x 1
 
-            loss += -np.log(Y_chars.T @ p[t])
+            loss += -np.log(Y_chars[:,t].T @ p[t])
+
         #backward   pass
 
 
@@ -187,33 +188,109 @@ def printsentence(result):
     print("\n")
 
 
+def compute_grads_num_slow(self, X_chars, Y_chars, h):
+    """
+    Parameters:
+        X (K, n): the input matrix
+        Y (K, n): the output matrix
+        h: initial hidden states
 
-def computeGrads_Num(rnn, x, y, h = 1e-5):
-    res_rnn = copy.deepcopy(rnn)
-    m = rnn.m
-    h_prev = np.zeros((m,1))
-    for idx, att in enumerate(['b', 'c', 'U', 'W', 'V']):
-        grad = np.zeros(getattr(rnn, att).shape)
-        for i in range(grad.shape[0]):
-            for j in range(grad.shape[1]):
-                rnn_try = copy.deepcopy(rnn)
-                aux = np.copy(getattr(rnn_try, att))
-                aux[i, j] -= h
-                setattr(rnn_try, att, aux)
-                #p, _, _ = rnn_try.forward(h_prev, x)
-                #l1 = rnn_try.loss(y, p)
-                grad_U, grad_W, grad_V, grad_b, grad_c, loss, hprev = CompGrads(self, X_chars, Y_chars, h0)
+    Returns:
+        grads: gradient values of all hyper-parameters
+    """
+    grad_U, grad_W, grad_V, grad_b, grad_c = np.zeros_like(self.U), np.zeros_like(
+        self.W), np.zeros_like(self.V), np.zeros_like(self.b), np.zeros_like(
+        self.c)
+    h0 = np.zeros((self.m, 1))
 
-                rnn_try = copy.deepcopy(rnn)
-                aux = np.copy(getattr(rnn_try, att))
-                aux[i, j] += h
-                setattr(rnn_try, att, aux)
-                p, _, _ = rnn_try.forward(h_prev, x)
-                l2 = rnn_try.loss(y, p)
-                grad[i, j] = (l2 - l1) / (2 * h)
-        setattr(res_rnn, "grad_"+att, grad)
 
-    return res_rnn
+
+    #for idx, att in enumerate(['b', 'c', 'U', 'W', 'V']):
+
+
+
+    b_try = np.copy(self.b)
+
+    print(len(self.b), "dkldkdkdakaaaaaa", h)
+    for i in range(len(self.b)):
+        self.b = np.array(b_try)
+        self.b[i] -= h
+        _, _, _, _, _, loss1, _ = self.CompGrads(X_chars,Y_chars,h0)
+
+        self.b = np.array(b_try)
+        self.b[i] += h
+        _, _, _, _, _, loss2, _ = self.CompGrads(X_chars,Y_chars,h0)
+
+        print(loss2.shape, "loss2")
+        grad_b[i] = (loss2 - loss1) / (2 * h)
+    self.b = b_try
+
+
+
+
+    c_try = np.copy(self.params['c'])
+    for i in range(len(self.params['c'])):
+        self.params['c'] = np.array(c_try)
+        self.params['c'][i] -= h
+        _, c1, _ = self.compute_gradients(X, Y, h0)
+
+        self.params['c'] = np.array(c_try)
+        self.params['c'][i] += h
+        _, c2, _ = self.compute_gradients(X, Y, h0)
+
+        grad_c[i] = (c2 - c1) / (2 * h)
+    self.params['c'] = c_try
+
+    U_try = np.copy(self.params['U'])
+    for i in np.ndindex(self.params['U'].shape):
+        self.params['U'] = np.array(U_try)
+        self.params['U'][i] -= h
+        _, c1, _ = self.compute_gradients(X, Y, h0)
+
+        self.params['U'] = np.array(U_try)
+        self.params['U'][i] += h
+        _, c2, _ = self.compute_gradients(X, Y, h0)
+
+        grad_U[i] = (c2 - c1) / (2 * h)
+    self.params['U'] = U_try
+
+    W_try = np.copy(self.params['W'])
+    for i in np.ndindex(self.params['W'].shape):
+        self.params['W'] = np.array(W_try)
+        self.params['W'][i] -= h
+        _, c1, _ = self.compute_gradients(X, Y, h0)
+
+        self.params['W'] = np.array(W_try)
+        self.params['W'][i] += h
+        _, c2, _ = self.compute_gradients(X, Y, h0)
+
+        grad_W[i] = (c2 - c1) / (2 * h)
+    self.params['W'] = W_try
+
+    V_try = np.copy(self.params['V'])
+    for i in np.ndindex(self.params['V'].shape):
+        self.params['V'] = np.array(V_try)
+        self.params['V'][i] -= h
+        _, c1, _ = self.compute_gradients(X, Y, h0)
+
+        self.params['V'] = np.array(V_try)
+        self.params['V'][i] += h
+        _, c2, _ = self.compute_gradients(X, Y, h0)
+
+        grad_V[i] = (c2 - c1) / (2 * h)
+    self.params['V'] = V_try
+
+    grads = {
+        'U': grad_U,
+        'W': grad_W,
+        'V': grad_V,
+        'b': grad_b,
+        'c': grad_c,
+    }
+    for g in grads:
+        grads[g] = np.clip(grads[g], -5, 5)
+
+    return grads
 
 
 
@@ -257,4 +334,4 @@ if __name__ == "__main__":
 
     grad_U, grad_W, grad_V, grad_b, grad_c, loss, hprev = RNN.CompGrads(X_chars, Y_chars, h_prev)
 
-    computeGrads_Num(RNN, X_chars, Y_chars)
+    compute_grads_num_slow(RNN,X_chars, Y_chars, h = 1e-5)
