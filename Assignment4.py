@@ -439,7 +439,7 @@ class RNN:
             self.b[i] += h
             _, _, _, _, _, c2, _ = self.CompGradsGIT(X, Y, h0)
 
-            grad_b[i] = (c2 - c1) / (2 * h)
+            grad_b[i] = (c2[0,0] - c1[0,0]) / (2 * h)
         self.b = b_try
 
         c_try = np.copy(self.c)
@@ -452,7 +452,7 @@ class RNN:
             self.c[i] += h
             _, _, _, _, _, c2, _ = self.CompGradsGIT(X, Y, h0)
 
-            grad_c[i] = (c2 - c1) / (2 * h)
+            grad_c[i] = (c2[0,0] - c1[0,0]) / (2 * h)
         self.c = c_try
 
         U_try = np.copy(self.U)
@@ -465,20 +465,21 @@ class RNN:
             self.U[i] += h
             _, _, _, _, _, c2, _ = self.CompGradsGIT(X, Y, h0)
 
-            grad_U[i] = (c2 - c1) / (2 * h)
+
+            grad_U[i] = (c2[0,0] - c1[0,0]) / (2 * h)
         self.U = U_try
 
         W_try = np.copy(self.W)
         for i in np.ndindex(self.W.shape):
             self.W = np.array(W_try)
-            self.W -= h
+            self.W[i] -= h
             _, _, _, _, _, c1, _ = self.CompGradsGIT(X, Y, h0)
 
             self.W = np.array(W_try)
             self.W[i] += h
             _, _, _, _, _, c2, _ = self.CompGradsGIT(X, Y, h0)
 
-            grad_W[i] = (c2 - c1) / (2 * h)
+            grad_W[i] = (c2[0,0] - c1[0,0]) / (2 * h)
         self.W = W_try
 
         V_try = np.copy(self.V)
@@ -491,7 +492,7 @@ class RNN:
             self.V[i] += h
             _, _, _, _, _, c2, _ = self.CompGradsGIT(X, Y, h0)
 
-            grad_V[i] = (c2 - c1) / (2 * h)
+            grad_V[i] = (c2[0,0] - c1[0,0]) / (2 * h)
         self.V = V_try
 
         grads = {
@@ -512,46 +513,21 @@ class RNN:
 
         return grad_U, grad_W, grad_V, grad_b, grad_c
 
-    def compute_grads_num_slowIBR(self, X, Y, h):
-        res_rnn = copy.deepcopy(rnn)
-        h_prev = np.zeros((m, 1))
-        for idx, att in enumerate(['b', 'c', 'U', 'W', 'V']):
-            grad = np.zeros(getattr(rnn, att).shape)
-            for i in range(grad.shape[0]):
-                for j in range(grad.shape[1]):
-                    rnn_try = copy.deepcopy(rnn)
-                    aux = np.copy(getattr(rnn_try, att))
-                    aux[i, j] -= h
-                    setattr(rnn_try, att, aux)
-                    p, _, _ = rnn_try.forward(h_prev, x)
-                    l1 = rnn_try.loss(y, p)
-                    rnn_try = copy.deepcopy(rnn)
-                    aux = np.copy(getattr(rnn_try, att))
-                    aux[i, j] += h
-                    setattr(rnn_try, att, aux)
-                    p, _, _ = rnn_try.forward(h_prev, x)
-                    l2 = rnn_try.loss(y, p)
-                    grad[i, j] = (l2 - l1) / (2 * h)
-            setattr(res_rnn, "grad_" + att, grad)
-
-        return res_rnn
-
-
 
 
 
     def testgradients(self,X_chars, Y_chars):
 
-        h = 1e-2
+        h = 1e-5
         h0 = np.zeros((self.m, 1))
         grad_U, grad_W, grad_V, grad_b, grad_c, _, _ = self.CompGrads(X_chars, Y_chars, h0)
-        print(grad_U[0])
+        print(grad_W)
         epsilon = np.finfo(np.float64).eps
 
         # ComputeGradsNumSlow
         print('ComputeGradsNumSlow')
         grad_U_slow, grad_W_slow, grad_V_slow, grad_b_slow, grad_c_slow = self.compute_grads_num_slowGIT(X_chars, Y_chars, h=h)
-        print(grad_U_slow[0])
+        print(grad_W_slow)
 
         gap_u = np.divide(np.abs(grad_U - grad_U_slow), np.maximum(epsilon, (np.abs(grad_U)) + (np.abs(grad_U_slow))))
         gap_w = np.divide(np.abs(grad_W - grad_W_slow), np.maximum(epsilon, (np.abs(grad_W)) + (np.abs(grad_W_slow))))
