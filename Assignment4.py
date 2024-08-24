@@ -6,7 +6,7 @@ np.random.seed(0)
 
 
 def getdata():
-    fileurl = r"C:\Users\marcu\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
+    fileurl = r"C:\Users\marcus\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
     file = open(fileurl, "r")
 
 
@@ -71,43 +71,19 @@ class RNN:
         V = self.V
 
 
-
-
         #eq 1-4
         xnext = x0  # 83 x 1
 
-
-        #xnext = np.reshape(xnext, (xnext.shape[0], 1))
-
-
-        #print(W.shape,h0.shape,U.shape,xnext[:,np.newaxis].shape,b.shape,"@@@@@@@@")
-
-        #np.set_printoptions(threshold=np.inf)
-
-        #print(U, "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        #np.set_printoptions(threshold=1000)
-        """
         a_t = W @ h0 + U @ xnext[:,np.newaxis] + b  # 100x100  x  100x1  +  100x83  x  83x1       #CORRECT
 
 
         h_t = np.tanh(a_t)                                                                        #CORRECT
         o_t = V @ h_t + c                                                                         #CORRECT
 
-        
-
-
-        a = np.exp(x0 - np.max(x0, axis=0))
+        a = np.exp(o_t - np.max(o_t, axis=0))
         p_t = a / a.sum(axis=0) #softmax
         p_t = np.reshape(p_t, (p_t.shape[0], 1))
 
-        """
-        x0 = x0.reshape(x0.shape[0], 1)  # (K,1)
-        a_t = np.matmul(self.W, h0) + np.matmul(self.U, x0) + self.b  # (m,1)
-        h_t = np.tanh(a_t)  # (m,1)
-        o_t = np.matmul(self.V, h_t) + self.c  # (K,1)
-
-        a = np.exp(o_t - np.max(o_t, axis=0))  # (K,1)
-        p_t = a / a.sum(axis=0)
 
 
         return a_t,h_t,o_t,p_t
@@ -128,10 +104,9 @@ class RNN:
             Y[idx, t] = 1
         return Y
 
-    def CompGrads(self,X_chars,Y_chars,h0):
+    def CompGradsGITmin(self,X_chars,Y_chars,h0):
 
         seq_length = X_chars.shape[1]
-        print("seq22222222222222222222222222222222222", seq_length)
 
         a = np.zeros((seq_length,RNN.m,1))  #9 x m x 1 = 100 x 1
         h = np.zeros((seq_length,RNN.m,1))      #9 x m x 1
@@ -154,18 +129,19 @@ class RNN:
 
 
         #forward pass                                   SAME AS GITHUB
-        for t in range(seq_length):
+        for t in range(seq_length):                                        #GOOD
             #eq 1-4
 
             a[t], h[t], o[t], p[t] = self.eval_RNN(h[t-1], X_chars[:,t])
 
             # 100 x 1
 
-            loss += -np.log(Y_chars[:,t].T @ p[t])
+            #loss += -np.log(Y_chars[:,t].T @ p[t])
+            loss += -np.log(np.matmul(Y_chars[:, t].reshape(Y_chars.shape[0], 1).T, p[t]))
 
-        #backward   pass
+            #backward   pass
 
-        """
+
         for t in reversed(range(seq_length)):
 
             grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T               # 1 x k   GOOD
@@ -179,22 +155,22 @@ class RNN:
 
             if t == seq_length-1:
 
-                grad_h[t] = ( grad_o[t] @ RNN.V ).T                  #m x 1 =  (83,)   @   (83, 100)   = 83 x 1 (with added newaxis)
-                grad_a[t] = grad_h[t] @ np.diag(1-np.tanh(a[t])**2)[:,np.newaxis]     #m x 1 = 100 x 1 =   100 x 1  @  (1,) (with new axis) =   100 x 1
+                grad_h[t] =  grad_o[t] @ RNN.V                   #m x 1 =  (83,)   @   (83, 100)   = 83 x 1 (with added newaxis)
+                grad_a[t] = np.multiply(grad_h[t], (1 - np.tanh(a[t].T) ** 2))  # (1,m)     #m x 1 = 100 x 1 =   100 x 1  @  (1,) (with new axis) =   100 x 1
 
 
             else:
-                grad_h[t] = (grad_o[t] @ RNN.V).T + RNN.W @ grad_a[t+1]                  #m x 1 =  (83,)  @  (83,100) + (100,1) @ (100,100)
-                grad_a[t] = grad_h[t] @ np.diag(1-np.tanh(a[t])**2)[:,np.newaxis]
+                grad_h[t] = (grad_o[t] @ RNN.V) + grad_a[t+1]  @ RNN.W                #m x 1 =  (83,)  @  (83,100) + (100,1) @ (100,100)
+                grad_a[t] = np.multiply(grad_h[t], (1 - np.tanh(a[t].T) ** 2))  # (1,m)
 
 
-            grad_W += grad_a[t] @ h[t - 1].T  # (m,m)
+            grad_W += grad_a[t].T @ h[t - 1].T  # (m,m)
 
 
-            grad_U += grad_a[t] @ X_chars[:, t].reshape(X_chars.shape[0], 1).T  # (m,K)
-            grad_b += grad_a[t]  # (m,1)
+            grad_U += grad_a[t].T @ X_chars[:, t].reshape(X_chars.shape[0], 1).T  # (m,K)
+            grad_b += grad_a[t].T  # (m,1)
+
         """
-
         for t in reversed(range(seq_length)):
             grad_o[t] = -(Y_chars[:, t].reshape(Y_chars.shape[0], 1) - p[t]).T  # (1,K)
             grad_V += np.matmul(grad_o[t].T, h[t].T)  # (K,m)
@@ -203,7 +179,6 @@ class RNN:
 
                 grad_h[t] = np.matmul(grad_o[t], self.V)  # (1,m)
 
-                print(grad_h[t].shape, (1 - np.tanh(a[t].T) ** 2).shape, "@@@@@@@@@@@@@@@@@@@@@@@@@")
                 grad_a[t] = np.multiply(grad_h[t], (1 - np.tanh(a[t].T) ** 2))  # (1,m)
 
             else:
@@ -213,7 +188,7 @@ class RNN:
             grad_U += np.matmul(grad_a[t].T, X_chars[:, t].reshape(X_chars.shape[0], 1).T)  # (m,K)
             grad_b += grad_a[t].T  # (m,1)
 
-
+        """
 
 
 
