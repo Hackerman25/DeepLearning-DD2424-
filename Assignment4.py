@@ -6,7 +6,7 @@ np.random.seed(0)
 
 
 def getdata():
-    fileurl = r"C:\Users\Marcus\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
+    fileurl = r"C:\Users\marcu\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
     file = open(fileurl, "r")
 
 
@@ -344,11 +344,11 @@ class RNN:
         W_try = np.copy(self.W)
         for i in range(len(W_try)):
             self.W = np.array(W_try)
-            self.W[i] -= h
+            self.W[i,:] -= h
             _, _, _, _, _, loss1, _ = self.CompGradsGIT(X_chars, Y_chars, h0)
 
             self.W = np.array(W_try)
-            self.W[i] += h
+            self.W[i,:] += h
             _, _, _, _, _, loss2, _ = self.CompGradsGIT(X_chars, Y_chars, h0)
 
             grad_W[i] = (loss2 - loss1) / (2 * h)
@@ -520,7 +520,7 @@ class RNN:
 
         h = 1e-5
         h0 = np.zeros((self.m, 1))
-        grad_U, grad_W, grad_V, grad_b, grad_c, _, _ = self.CompGrads(X_chars, Y_chars, h0)
+        grad_U, grad_W, grad_V, grad_b, grad_c, _, _ = self.CompGradsGIT(X_chars, Y_chars, h0)
         print(grad_W)
         epsilon = np.finfo(np.float64).eps
 
