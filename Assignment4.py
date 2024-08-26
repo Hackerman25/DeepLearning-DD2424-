@@ -242,6 +242,56 @@ class RNN:
         
         """
 
+    def train(self,iterations,eta,eps):
+        print("Training:")
+
+        seq_length = 25
+
+        G = [np.zeros_like(self.U),
+            np.zeros_like(self.W),
+            np.zeros_like(self.V),
+            np.zeros_like(self.b),
+            np.zeros_like(self.c)]
+
+        for e in range(0,iterations):
+            X_chars = OneHotEncoding(data, my_map, begin=e, end=seq_length - 1)
+            Y_chars = OneHotEncoding(data, my_map, begin=e+1, end=seq_length)
+
+            if e == 0:
+                h_prev = np.zeros((RNN.m, 1))
+            else:
+                h_prev = h
+
+            grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGradsGIT(X_chars,Y_chars,h_prev)
+
+            #Adagrad updatestep
+
+            gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
+            paramlist = [self.U, self.V, self.V, self.b, self.c]
+
+            print("loss", loss)
+
+
+
+
+            for i in range(len(gradlist)):
+
+                G[i] = G[i] + np.power(gradlist[i], 2)
+
+
+
+                paramlist[i] = gradlist[i] - (eta /  np.sqrt(G[i]+eps)) * gradlist[i]
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == "__main__":
 
 
@@ -280,10 +330,14 @@ if __name__ == "__main__":
 
     print(X_chars.shape,Y_chars.shape)
 
-    RNN.testgradients(X_chars,Y_chars)
+    #RNN.testgradients(X_chars,Y_chars)
 
 
-    #model_RNN.fit(data, sig, seq_len, epoch, eta)
 
+
+
+    #05
+
+    RNN.train(iterations= 1000,eta=0.01,eps=0.0000001)
 
 

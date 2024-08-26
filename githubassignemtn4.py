@@ -128,7 +128,6 @@ class RecurrentNeuralNetwork():
         self.params['V'] = np.random.normal(0.0, sig, (self.K, self.m))
 
     def evaluate_rnn(self, h0, x):
-        print(h0.shape, x.shape, "shapes")
         """
         Parameters:
             h0: initial hidden states
@@ -142,14 +141,11 @@ class RecurrentNeuralNetwork():
         """
         x = x.reshape(x.shape[0], 1)  # (K,1)
 
-        print(self.params['W'].shape, h0.shape, self.params['U'].shape, x.shape)
         a = np.matmul(self.params['W'], h0) + np.matmul(self.params['U'], x) + self.params['b']  # (m,1)
-        print("gabag", a.shape)
         h = np.tanh(a)  # (m,1)
         o = np.matmul(self.params['V'], h) + self.params['c']  # (K,1)
         p = softmax(o)  # (K,1)
 
-        print(a.shape, h.shape, o.shape, p.shape, "dkdld")
 
         return a, h, o, p
 
@@ -207,7 +203,6 @@ class RecurrentNeuralNetwork():
         # backward-pass
         for t in reversed(range(seq_len)):
             grad_o[t] = -(Y[:, t].reshape(Y.shape[0], 1) - p[t]).T  # (1,K)
-            print(grad_o[t].shape, h[t].shape, "gab")
             grad_V += np.matmul(grad_o[t].T, h[t].T)  # (K,m)
             grad_c += grad_o[t].T  # (K,1)
             if t == seq_len - 1:
@@ -370,6 +365,9 @@ class RecurrentNeuralNetwork():
 
                 for g in grads:
                     m_params[g] += np.power(grads[g], 2)
+
+                    print("shape",  m_params[g].shape)
+
                     self.params[g] -= np.multiply(eta / np.sqrt(m_params[g] + epsilon), grads[g])
 
                 hprev = h
@@ -416,7 +414,7 @@ if __name__ == '__main__':
     print(X.shape)
 
     model_RNN = RecurrentNeuralNetwork(m=100, K=data['K'])
-    model_RNN.test_method(X, Y)
+
     model_RNN.fit(data, sig, seq_len, epoch, eta)
 
     plt.plot(model_RNN.t, model_RNN.loss_train)
