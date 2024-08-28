@@ -255,6 +255,8 @@ class RNN:
             np.zeros_like(self.b),
             np.zeros_like(self.c)]
 
+
+
         losslist = []
         lendata = len(data)
 
@@ -285,6 +287,13 @@ class RNN:
                 if (e % 1000) == 0:
                     losslist.append(smoothloss[0,0])
                     print("iter:", e, "loss", loss, "smoothloss", smoothloss)
+
+
+                    text = self.synth_text(h_prev, X_chars[:,0], 200) #HERE
+                    #print(inv_map)
+                    #print(inv_map[text[:,0]])
+
+
 
 
                 for i in range(len(gradlist)):
