@@ -244,7 +244,7 @@ class RNN:
         
         """
 
-    def train(self,iterations,eta,eps):
+    def train(self,epochs,eta,eps):
         print("Training:")
 
         seq_length = 25
@@ -256,39 +256,43 @@ class RNN:
             np.zeros_like(self.c)]
 
         losslist = []
+        lendata = len(data)
 
-        for e in range(0,iterations):
-            X_chars = OneHotEncoding(data, my_map, begin=e, end=e +seq_length - 1)
-            Y_chars = OneHotEncoding(data, my_map, begin=e+1, end=e +seq_length)
+        for iter in range(0,epochs):
+            for e in range(0,(lendata-seq_length),seq_length):
 
-            if e == 0:
-                h_prev = np.zeros((RNN.m, 1))
-            else:
-                h_prev = h
+                X_chars = OneHotEncoding(data, my_map, begin=e, end=e +seq_length - 1)
+                Y_chars = OneHotEncoding(data, my_map, begin=e+1, end=e +seq_length)
 
-            grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGradsGIT(X_chars,Y_chars,h_prev)
+                if e == 0:
+                    h_prev = np.zeros((RNN.m, 1))
+                else:
+                    h_prev = h
 
-            #Adagrad updatestep
+                grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGradsGIT(X_chars,Y_chars,h_prev)
 
-            gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
-            paramlist = [self.U, self.W, self.V, self.b, self.c]
+                #Adagrad updatestep
 
-            if e == 0:
-                smoothloss = loss
-            else:
-                smoothloss = .999 * smoothloss + .001 * loss
-            print("loss", loss,"smoothloss", smoothloss)
+                gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
+                paramlist = [self.U, self.W, self.V, self.b, self.c]
 
-            if (e % 1000) == 0:
-                losslist.append(smoothloss[0,0])
-
-
-            for i in range(len(gradlist)):
-
-                G[i] = G[i] + np.power(gradlist[i], 2)
+                if e == 0 and iter == 0:
+                    smoothloss = loss
+                else:
+                    smoothloss = .999 * smoothloss + .001 * loss
 
 
-                paramlist[i] -=  (eta /  np.sqrt(G[i]+eps)) * gradlist[i]
+                if (e % 1000) == 0:
+                    losslist.append(smoothloss[0,0])
+                    print("iter:", e, "loss", loss, "smoothloss", smoothloss)
+
+
+                for i in range(len(gradlist)):
+
+                    G[i] = G[i] + np.power(gradlist[i], 2)
+
+
+                    paramlist[i] -=  (eta /  np.sqrt(G[i]+eps)) * gradlist[i]
 
 
 
@@ -346,6 +350,6 @@ if __name__ == "__main__":
 
     #05
 
-    losslist = RNN.train(iterations= 100000,eta=0.01,eps=0.0000001)
+    losslist = RNN.train(epochs= 2,eta=0.01,eps=0.0000001)
 
 
