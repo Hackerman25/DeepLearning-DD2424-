@@ -366,7 +366,7 @@ class RecurrentNeuralNetwork():
                 for g in grads:
                     m_params[g] += np.power(grads[g], 2)
 
-                    print("shape",  m_params[g].shape)
+                    print("shape",  self.params[g].shape,m_params[g].shape,grads[g].shape)
 
                     self.params[g] -= np.multiply(eta / np.sqrt(m_params[g] + epsilon), grads[g])
 

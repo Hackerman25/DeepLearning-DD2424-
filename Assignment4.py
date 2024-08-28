@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import matplotlib.pyplot as plt
 
 np.random.seed(0)
 
@@ -32,6 +33,7 @@ def createmappingfunc(file):
 def OneHotEncoding(data, mymap,begin, end):
     K = len(mymap)
     N = end - begin
+
 
     EncodedData = np.zeros((K,N))
 
@@ -253,9 +255,11 @@ class RNN:
             np.zeros_like(self.b),
             np.zeros_like(self.c)]
 
+        losslist = []
+
         for e in range(0,iterations):
-            X_chars = OneHotEncoding(data, my_map, begin=e, end=seq_length - 1)
-            Y_chars = OneHotEncoding(data, my_map, begin=e+1, end=seq_length)
+            X_chars = OneHotEncoding(data, my_map, begin=e, end=e +seq_length - 1)
+            Y_chars = OneHotEncoding(data, my_map, begin=e+1, end=e +seq_length)
 
             if e == 0:
                 h_prev = np.zeros((RNN.m, 1))
@@ -267,11 +271,16 @@ class RNN:
             #Adagrad updatestep
 
             gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
-            paramlist = [self.U, self.V, self.V, self.b, self.c]
+            paramlist = [self.U, self.W, self.V, self.b, self.c]
 
-            print("loss", loss)
+            if e == 0:
+                smoothloss = loss
+            else:
+                smoothloss = .999 * smoothloss + .001 * loss
+            print("loss", loss,"smoothloss", smoothloss)
 
-
+            if (e % 1000) == 0:
+                losslist.append(smoothloss[0,0])
 
 
             for i in range(len(gradlist)):
@@ -279,15 +288,14 @@ class RNN:
                 G[i] = G[i] + np.power(gradlist[i], 2)
 
 
-
-                paramlist[i] = gradlist[i] - (eta /  np.sqrt(G[i]+eps)) * gradlist[i]
-
+                paramlist[i] -=  (eta /  np.sqrt(G[i]+eps)) * gradlist[i]
 
 
 
-
-
-
+        print(losslist)
+        plt.plot(range(len(losslist)),losslist)
+        plt.ylabel('Loss')
+        plt.show()
 
 
 
@@ -338,6 +346,6 @@ if __name__ == "__main__":
 
     #05
 
-    RNN.train(iterations= 1000,eta=0.01,eps=0.0000001)
+    losslist = RNN.train(iterations= 100000,eta=0.01,eps=0.0000001)
 
 
