@@ -94,7 +94,6 @@ class RNN:
 
         Y = np.zeros((self.K, n))
         for t in range(n):
-            print("x0", x0.shape)
             a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0)
 
 
@@ -145,7 +144,6 @@ class RNN:
 
 
 
-            grad_a[t] = grad_h[t] * (1 - np.tanh(a[t].T) ** 2)
 
 
             grad_W += grad_a[t].T @ h[t - 1].T  # (m,m)
@@ -263,10 +261,13 @@ class RNN:
         for iter in range(0,epochs):
             for e in range(0,(lendata-seq_length),seq_length):
 
-                X_chars = OneHotEncoding(data, my_map, begin=e, end=e +seq_length - 1)
-                Y_chars = OneHotEncoding(data, my_map, begin=e+1, end=e +seq_length)
 
-                if e == 0:
+                X_chars = OneHotEncoding(data, my_map, begin=e, end=e + seq_length - 2)
+                Y_chars = OneHotEncoding(data, my_map, begin=e + 1, end=e + seq_length-1)
+
+
+
+                if e == 0 and iter == 0:
                     h_prev = np.zeros((RNN.m, 1))
                 else:
                     h_prev = h
@@ -284,13 +285,20 @@ class RNN:
                     smoothloss = .999 * smoothloss + .001 * loss
 
 
-                if (e % 1000) == 0:
+                if (e % 10000) == 0:
                     losslist.append(smoothloss[0,0])
+                    print("\n")
                     print("iter:", e, "loss", loss, "smoothloss", smoothloss)
 
 
                     text = self.synth_text(h_prev, X_chars[:,0], 200) #HERE
-                    #print(inv_map)
+
+
+
+
+                    for i in range(0,len(text)):
+                        indexone = np.where(text[:, i] == 1)[0][0]
+                        print(inv_map[indexone],end ="" )
                     #print(inv_map[text[:,0]])
 
 
@@ -359,6 +367,6 @@ if __name__ == "__main__":
 
     #05
 
-    losslist = RNN.train(epochs= 2,eta=0.01,eps=0.0000001)
+    losslist = RNN.train(epochs= 2,eta=0.01,eps=1e-8)
 
 
