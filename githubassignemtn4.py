@@ -355,6 +355,8 @@ class RecurrentNeuralNetwork():
                 else:
                     X = onehot_conversion(compile_output, e, e + seq_len)
                     Y = onehot_conversion(compile_output, e + 1, e + seq_len + 1)
+
+                    print(X.shape, Y.shape, "@@@@@@@2")
                     e += seq_len
 
                 grads, loss, h = self.compute_gradients(X, Y, hprev)
