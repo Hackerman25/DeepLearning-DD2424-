@@ -9,9 +9,12 @@ np.random.seed(0)
 def getdata():
     fileurl = r"C:\Users\marcu\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
     file = open(fileurl, "r")
+    data = file.read()
+
+    book_chars = list(set(data))
 
 
-    return file.read()
+    return data, book_chars
 
 
 def findnumbunique(file):
@@ -20,7 +23,7 @@ def findnumbunique(file):
 
     return output
 
-def createmappingfunc(file):
+def createmappingfunc(file):               #CORRECTCONFIRMED
 
     output1 = sorted(set(file))
 
@@ -30,7 +33,7 @@ def createmappingfunc(file):
     return my_map, inv_map
 
 
-def OneHotEncoding(data, mymap,begin, end):
+def OneHotEncoding(data, mymap,begin, end):              #CORRECTCONFIRMED
 
     K = len(mymap)
     N = end - begin
@@ -61,7 +64,7 @@ def softmax(x):
 
 class RNN:
     def __init__(self,m,K,eta= 0.1,seq_length= 25):
-        print(K,"ddk")
+        #print(K,"ddk")
         self.m = m
         self.K = K
         self.eta = eta
@@ -75,7 +78,9 @@ class RNN:
         self.W = np.random.normal(0, 1, size=(self.m, self.m)) * sig
         self.V = np.random.normal(0, 1, size=(self.K, self.m)) * sig
 
-
+    def loss(self, y, p):
+        loss = - np.sum(y * np.log(p))
+        return loss
 
     def eval_RNN(self,h0,x0):   #should be correct
 
@@ -112,6 +117,8 @@ class RNN:
 
 
             cp = np.cumsum(p_t)
+
+
             idx = np.random.choice(self.K, p=p_t.flat)
             x0 = np.zeros(x0.shape)
             x0[idx] = 1
@@ -171,9 +178,6 @@ class RNN:
 
 
         return grad_U, grad_W, grad_V, grad_b, grad_c, loss, hprev
-
-
-
 
 
 
@@ -268,168 +272,280 @@ class RNN:
             np.zeros_like(self.b),
             np.zeros_like(self.c)]
 
-        h_prev = np.zeros((RNN.m, 1))
+
 
         losslist = []
         lendata = len(data)
 
 
-
-        for Epoch in range(0,epochs):
-            for e in range(0,(lendata-seq_length),seq_length):
-
-
-                X_chars = OneHotEncoding(data, my_map, begin=e, end=e + seq_length)
-                Y_chars = OneHotEncoding(data, my_map, begin=e + 1, end=e + seq_length+1)
-
-
-
-
-
-                grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGradsGIT(X_chars,Y_chars,h_prev)
-
-                #Adagrad updatestep
-
-                gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
-                paramlist = [self.U, self.W, self.V, self.b, self.c]
-
-                if e == 0 and Epoch == 0:
-                    smoothloss = loss
-                else:
-                    smoothloss = .999 * smoothloss + .001 * loss
-
-
-                for i in range(len(gradlist)):
-
-                    G[i] += np.power(gradlist[i], 2)
-
-
-                    paramlist[i] -=  (eta /  np.sqrt(G[i]+eps)) * gradlist[i]
-
-                h_prev = h
-
-                if (e/(seq_length) % 1000) == 0:
-                    losslist.append(smoothloss[0,0])
-                    print("\n")
-                    print("iter:", e/(seq_length), "loss", loss, "smoothloss", smoothloss)
-
-
-                    text = self.synth_text(h_prev, X_chars[:,0], 200) #HERE
-
-
-
-
-                    for i in range(0,len(text)):
-                        indexone = np.where(text[:, i] == 1)[0][0]
-                        print(inv_map[indexone],end ="" )
-                    #print(inv_map[text[:,0]])
-
-
-
-
-
-
-
         """
-        n = len(data)
-        nb_seq = int((n - 1) / seq_length)
+        for Epoch in range(0,epochs):
 
+            h_prev = np.zeros((RNN.m, 1))
+            print("NEW EPOCH", Epoch)
+        """
+        h_prev = np.zeros((RNN.m, 1))
+        for e in range(0,(lendata-seq_length)*epochs,seq_length):
+
+
+
+            X_chars = OneHotEncoding(data, my_map, begin=e%(lendata-seq_length), end=e%(lendata-seq_length) + seq_length)
+            Y_chars = OneHotEncoding(data, my_map, begin=e%(lendata-seq_length) + 1, end=e%(lendata-seq_length) + seq_length+1)
+
+
+
+
+
+            grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGradsGIT(X_chars,Y_chars,h_prev)
+
+            #Adagrad updatestep
+
+            gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
+            #paramlist = [self.U, self.W, self.V, self.b, self.c]
+
+
+
+
+
+            if e == 0:
+                smoothloss = loss
+            else:
+                smoothloss = .999 * smoothloss + .001 * loss
+
+
+            for i in range(len(gradlist)):
+
+                G[i] += np.power(gradlist[i], 2)
+
+
+
+
+            self.U -= np.multiply((eta /  np.sqrt(G[0]+eps)) , gradlist[0])
+            self.W -= np.multiply((eta / np.sqrt(G[1] + eps)) , gradlist[1])
+            self.V -= np.multiply((eta / np.sqrt(G[2] + eps)) , gradlist[2])
+            self.b -= np.multiply((eta / np.sqrt(G[3] + eps)) , gradlist[3])
+            self.c -= np.multiply((eta / np.sqrt(G[4] + eps)) , gradlist[4])
+
+
+
+
+            h_prev = h
+
+            if (e/(seq_length) % 10000) == 0:
+                losslist.append(smoothloss[0,0])
+                print("\n")
+                print("Epoch:", e // (lendata-seq_length), "iter:", e/(seq_length), "loss", loss, "smoothloss", smoothloss)
+
+
+                print("@@@",h_prev.shape, X_chars[:,0].shape, 200)
+                text = self.synth_text(h_prev, X_chars[:,0], 200) #HERE
+
+
+
+
+                for i in range(0,len(text)):
+                    indexone = np.where(text[:, i] == 1)[0][0]
+                    print(inv_map[indexone],end ="" )
+                #print(inv_map[text[:,0]])
+
+
+
+
+
+
+
+    """
+    n = len(data)
+    nb_seq = int((n - 1) / seq_length)
+
+    smooth_loss = 0
+
+    for i in range(epochs):
+        e = 0
+        hprev = np.zeros((self.m, 1))
+        for j in range(nb_seq):
+            if j == nb_seq - 1:
+                X = OneHotEncoding(data,my_map, e, n - 2)
+                Y = OneHotEncoding(data,my_map, e + 1, n - 1)
+                e = n
+            else:
+                X = OneHotEncoding(data,my_map, e, e + seq_length-1)
+                Y = OneHotEncoding(data,my_map, e + 1, e + seq_length)
+
+                e += seq_length
+
+
+            grad_U, grad_W, grad_V, grad_b, grad_c, loss, h =  self.CompGradsGIT(X,Y,hprev)
+            if smooth_loss != 0:
+                smooth_loss = 0.999 * smooth_loss + 0.001 * loss
+            else:
+                smooth_loss = loss
+
+            gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
+            paramlist = [self.U, self.W, self.V, self.b, self.c]
+
+
+            for i in range(len(gradlist)):
+                G[i] += np.power(gradlist[i], 2)
+
+
+                paramlist[i] -= np.multiply(eta / np.sqrt(G[i] + eps), gradlist[i])
+
+            hprev = h
+
+            if (j  % 1000) == 0:
+                losslist.append(smooth_loss)
+                print("\n")
+                print("iter:", j , "loss", loss, "smoothloss", smooth_loss)
+
+                text = self.synth_text(h_prev, X_chars[:, 0], 200)  # HERE
+
+                for i in range(0, len(text)):
+                    indexone = np.where(text[:, i] == 1)[0][0]
+                    print(inv_map[indexone], end="")
+                # print(inv_map[text[:,0]])
+
+
+    """
+
+
+
+
+    def AdaGrad(self, compile_output, seq_len, epoch, eta):
+        """
+        Parameters:
+            compile_output: contains data, unique characters, mapping from character to index and reversely
+            seq_len: the length of text to be trained
+            epoch: number of iteration of training
+            eta: the learning rate value
+
+        Returns:
+            print predicted text
+        """
+        n = len(compile_output['book_data'])
+        nb_seq = int((n - 1) / seq_len)
+        t = 0
         smooth_loss = 0
-
-        for i in range(epochs):
+        epsilon = np.finfo(np.float64).eps
+        m_params = {
+            'U': np.zeros_like(self.params['U']),
+            'W': np.zeros_like(self.params['W']),
+            'V': np.zeros_like(self.params['V']),
+            'b': np.zeros_like(self.params['b']),
+            'c': np.zeros_like(self.params['c'])
+        }
+        for i in range(epoch):
             e = 0
             hprev = np.zeros((self.m, 1))
             for j in range(nb_seq):
-                if j == nb_seq - 1:
-                    X = OneHotEncoding(data,my_map, e, n - 2)
-                    Y = OneHotEncoding(data,my_map, e + 1, n - 1)
-                    e = n
-                else:
-                    X = OneHotEncoding(data,my_map, e, e + seq_length-1)
-                    Y = OneHotEncoding(data,my_map, e + 1, e + seq_length)
 
-                    e += seq_length
+                X = OneHotEncoding(data, my_map, begin=e, end=e + seq_length)
+                Y = OneHotEncoding(data, my_map, begin=e + 1, end=e + seq_length + 1)
 
+                e += seq_len
 
-                grad_U, grad_W, grad_V, grad_b, grad_c, loss, h =  self.CompGradsGIT(X,Y,hprev)
+                grads, loss, h = self.compute_gradients(X, Y, hprev)
                 if smooth_loss != 0:
                     smooth_loss = 0.999 * smooth_loss + 0.001 * loss
                 else:
                     smooth_loss = loss
 
-                gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
-                paramlist = [self.U, self.W, self.V, self.b, self.c]
+                for g in grads:
+                    m_params[g] += np.power(grads[g], 2)
 
-
-                for i in range(len(gradlist)):
-                    G[i] += np.power(gradlist[i], 2)
-
-
-                    paramlist[i] -= np.multiply(eta / np.sqrt(G[i] + eps), gradlist[i])
+                    self.params[g] -= np.multiply(eta / np.sqrt(m_params[g] + epsilon), grads[g])
 
                 hprev = h
 
-                if (j  % 1000) == 0:
-                    losslist.append(smooth_loss)
-                    print("\n")
-                    print("iter:", j , "loss", loss, "smoothloss", smooth_loss)
+                if t % 100 == 0:
+                    self.loss_train.append(smooth_loss[0][0])
+                    self.t.append(t)
 
-                    text = self.synth_text(h_prev, X_chars[:, 0], 200)  # HERE
+                if t % 1000 == 0:
+                    print('t:', t, 'smooth_loss:', smooth_loss[0][0])
 
-                    for i in range(0, len(text)):
-                        indexone = np.where(text[:, i] == 1)[0][0]
-                        print(inv_map[indexone], end="")
-                    # print(inv_map[text[:,0]])
+                if t % 10000 == 0:
 
+                    print(hprev.shape, "HPREV")
+                    Y_t = self.synthesize_text(hprev, X[:, 0], 200)
+                    text = ''
+                    for i in range(Y_t.shape[1]):
+                        idx = np.where(Y_t[:, i] == 1)[0][0]
+                        text += compile_output['ind_to_char'][idx]
+                    print(text)
 
-        """
+                t += 1
 
+        X = onehot_conversion(compile_output, 0, n - 1)
 
-
-        print(losslist)
-        plt.plot(range(len(losslist)),losslist)
-        plt.ylabel('Loss')
-        plt.show()
-
-
+        Y_t = self.synthesize_text(hprev, X[:, 0], 1000)
+        text = ''
+        for i in range(Y_t.shape[1]):
+            idx = np.where(Y_t[:, i] == 1)[0][0]
+            text += compile_output['ind_to_char'][idx]
+        print(text)
 
 
 if __name__ == "__main__":
 
     #01
+    global my_map, inv_map, char_to_ind, ind_to_char,char_onehot, m, n, K
 
-    data = getdata()
+
+    data, book_chars = getdata()
+
+
+
+    char_to_ind = dict()
+    ind_to_char = dict()
+    char_onehot = dict()
+
+    for i, chr in enumerate(book_chars):
+        char_to_ind[chr] = i
+        ind_to_char[i] = chr
+        one_hot = np.zeros(len(book_chars))
+        one_hot[char_to_ind[chr]] = 1
+        char_onehot[chr] = one_hot
+
 
 
     numbunique = findnumbunique(data)
-    print(numbunique)
+    #print(numbunique)
 
     my_map, inv_map = createmappingfunc(data)
 
     seq_length = 25
-    X_chars = OneHotEncoding(data,my_map,begin = 0, end = seq_length-1)
-    Y_chars = OneHotEncoding(data,my_map,begin = 1, end = seq_length)
+    X_chars = OneHotEncoding(data,char_to_ind,begin = 0, end = seq_length-1)
+    Y_chars = OneHotEncoding(data,char_to_ind,begin = 1, end = seq_length)
+
+    RNN = RNN(K=X_chars.shape[0], m=100)
+    m = RNN.m
+    n = RNN.seq_length
+    K = RNN.K
+    h_prev = np.zeros((RNN.m, 1))
 
 
-    print(X_chars.shape)
-    print(Y_chars.shape)
+    #print(X_chars.shape)
+    #print(Y_chars.shape)
 
     #02
 
-    RNN = RNN(K = X_chars.shape[0], m = 100)
+    #rnn, h_prev, smooth_loss, current_update = train_AdaGrad(RNN, data, num_steps=10, eta=0.1, h0=h_prev)
+
+
 
     #03
 
     #a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0, 20)
-    h_prev = np.zeros((RNN.m,1))
+    #h_prev = np.zeros((RNN.m,1))
 
-    print(X_chars.shape, "x shape")
-    result = RNN.synth_text(h_prev, X_chars[:, 0], 20)
+    #print(X_chars.shape, "x shape")
+    #result = RNN.synth_text(h_prev, X_chars[:, 0], 20)
 
-    RNN.printsentence(result)
+    #RNN.printsentence(result)
 
 
-    print(X_chars.shape,Y_chars.shape)
+    #print(X_chars.shape,Y_chars.shape)
 
     #RNN.testgradients(X_chars,Y_chars)
 
@@ -439,6 +555,5 @@ if __name__ == "__main__":
 
     #05
 
-    losslist = RNN.train(epochs= 5,eta=0.01,eps=1e-8)
-
+    losslist = RNN.train(epochs= 6,eta=0.01,eps=1e-8)   #byt ut denna mot githubassignment4 sucessivt...
 
