@@ -2,12 +2,12 @@ import numpy as np
 import copy
 import matplotlib.pyplot as plt
 
-np.random.seed(0)
+np.random.seed(1)
 
 
 
 def getdata():
-    fileurl = r"C:\Users\marcu\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
+    fileurl = r"C:\Users\Marcus\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
     file = open(fileurl, "r")
     data = file.read()
 
@@ -17,11 +17,7 @@ def getdata():
     return data, book_chars
 
 
-def findnumbunique(file):
 
-    output = len(set(file))
-
-    return output
 
 def createmappingfunc(file):               #CORRECTCONFIRMED
 
@@ -53,11 +49,11 @@ def OneHotEncoding(data, mymap,begin, end):              #CORRECTCONFIRMED
 
 
 class RNN:
-    def __init__(self,m,K,eta= 0.1,seq_length= 25):
+    def __init__(self,m,K,seq_length= 25):
         #print(K,"ddk")
         self.m = m
         self.K = K
-        self.eta = eta
+
         self.seq_length = seq_length
 
         self.b = np.zeros((self.m,1))
@@ -68,9 +64,6 @@ class RNN:
         self.W = np.random.normal(0, 1, size=(self.m, self.m)) * sig
         self.V = np.random.normal(0, 1, size=(self.K, self.m)) * sig
 
-    def loss(self, y, p):
-        loss = - np.sum(y * np.log(p))
-        return loss
 
     def eval_RNN(self,h0,x0):   #should be correct
 
@@ -105,22 +98,28 @@ class RNN:
 
         Y = np.zeros((self.K, n))
         for t in range(n):
+
             a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0)
 
 
 
             cp = np.cumsum(p_t)
+            #idx = np.random.choice(self.K, p=p_t.flat)
+
+            unif_sampler = np.random.uniform(0, 1, size=1)  # sample a random value between 0 and 1
+            idx = list(unif_sampler <= cp).index(True)
 
 
-            idx = np.random.choice(self.K, p=p_t.flat)
             x0 = np.zeros(x0.shape)
             x0[idx] = 1
             Y[idx, t] = 1
+
+
         return Y
 
 
 
-    def CompGradsGIT(self, X, Y, h0):
+    def CompGrads(self, X, Y, h0):
 
         seq_len = X.shape[1]
 
@@ -131,42 +130,43 @@ class RNN:
         p = np.zeros((seq_length, X_chars.shape[0], 1))  # 9 x k x 1
         h[-1] = h0
 
-        #grad_a, grad_h, grad_o = {}, {}, {}
-
         grad_o = np.zeros((seq_length, 1, X_chars.shape[0]))  # 9 x 1 x 83
         grad_h = np.zeros((seq_length, 1, RNN.m))
         grad_a = np.zeros((seq_length, 1, RNN.m))
+        grad_U = np.zeros_like(self.U)
+        grad_W = np.zeros_like(self.W)
+        grad_V = np.zeros_like(self.V)
+        grad_b = np.zeros_like(self.b)
+        grad_c = np.zeros_like(self.c)
 
-
-        grad_U, grad_W, grad_V, grad_b, grad_c = np.zeros_like(self.U), np.zeros_like(self.W), np.zeros_like(self.V), np.zeros_like(self.b), np.zeros_like(self.c)
-
-        # forward-pass
+        # forward pass
         for t in range(seq_len):
-            a[t], h[t], o[t], p[t] = self.eval_RNN(h[t - 1], X[:, t])  # (m,1), (m,1), (K,1), (K,1)
-            loss += -np.log(Y[:, t].reshape(Y.shape[0], 1).T @ p[t])  # (1,1)
-        # backward-pass
+            a[t], h[t], o[t], p[t] = self.eval_RNN(h[t - 1], X[:, t])
+            loss += -np.log(Y[:, t].reshape(Y.shape[0], 1).T @ p[t])
+        # backward pass
         for t in reversed(range(seq_len)):
-            grad_o[t] = -(Y[:, t].reshape(Y.shape[0], 1) - p[t]).T  # (1,K)
-            grad_V += grad_o[t].T @ h[t].T  # (K,m)  min
-            grad_c += grad_o[t].T  # (K,1)
+            grad_o[t] = -(Y[:, t].reshape(Y.shape[0], 1) - p[t]).T
+            grad_V += grad_o[t].T @ h[t].T
+            grad_c += grad_o[t].T
+
             if t == seq_len - 1:
-                grad_h[t] =   grad_o[t] @ self.V  # (1,m)
+                grad_h[t] =   grad_o[t] @ self.V
             else:
-                grad_h[t] =  grad_o[t] @ self.V + grad_a[t+1]  @ self.W  # (1,m)
-            grad_a[t] = grad_h[t] * (1 - np.tanh(a[t].T) ** 2)  # (1,m)
+                grad_h[t] =  grad_o[t] @ self.V + grad_a[t+1]  @ self.W
+            grad_a[t] = grad_h[t] * (1 - np.tanh(a[t].T) ** 2)
 
 
 
 
 
-            grad_W += grad_a[t].T @ h[t - 1].T  # (m,m)
+            grad_W += grad_a[t].T @ h[t - 1].T
 
-            grad_U += (grad_a[t].T) @ (X[:, t].reshape(X.shape[0], 1).T)  # (m,K)
-            grad_b += grad_a[t].T  # (m,1)
+            grad_U += (grad_a[t].T) @ (X[:, t].reshape(X.shape[0], 1).T)
+            grad_b += grad_a[t].T
 
         grad_U, grad_W, grad_V, grad_b, grad_c = np.clip(grad_U, -5, 5), np.clip(grad_W, -5, 5), np.clip(grad_V, -5,5), np.clip(grad_b, -5, 5), np.clip(grad_c, -5, 5)
 
-        hprev = h[seq_len - 1]
+        hprev = h[-1]
 
 
 
@@ -182,7 +182,7 @@ class RNN:
         print("sentence:")
         for letter in index:
 
-            print(inv_map[letter], end = "")  # ???? dont know this part to get letters
+            print(inv_map[letter], end = "")
         print("\n")
 
     def compute_grads_num_slowGIT(self, X, Y, h):
@@ -195,10 +195,10 @@ class RNN:
             param_try = np.copy(param)
             for i in np.ndindex(param.shape):
                 param[i] = param_try[i] - h
-                c1 = self.CompGradsGIT(X, Y, h0)[5][0, 0]
+                c1 = self.CompGrads(X, Y, h0)[5][0, 0]
 
                 param[i] = param_try[i] + h
-                c2 = self.CompGradsGIT(X, Y, h0)[5][0, 0]
+                c2 = self.CompGrads(X, Y, h0)[5][0, 0]
 
                 grad[i] = (c2 - c1) / (2 * h)
                 param[i] = param_try[i]
@@ -223,7 +223,7 @@ class RNN:
 
         h = 1e-5
         h0 = np.zeros((self.m, 1))
-        grad_U, grad_W, grad_V, grad_b, grad_c, _, _ = self.CompGradsGIT(X_chars, Y_chars, h0)
+        grad_U, grad_W, grad_V, grad_b, grad_c, _, _ = self.CompGrads(X_chars, Y_chars, h0)
 
         epsilon = np.finfo(np.float64).eps
 
@@ -237,7 +237,7 @@ class RNN:
 
         for name, grad, grad_slow in zip(names, grads, grads_slow):
             gap = np.divide(np.abs(grad - grad_slow), np.maximum(epsilon, np.abs(grad) + np.abs(grad_slow)))
-            print(f"{name}: max {np.max(gap)}, mean {np.mean(gap)}")
+            print(f"{name}: maximum {np.max(gap)}, mean {np.mean(gap)}")
 
 
         
@@ -259,12 +259,7 @@ class RNN:
         lendata = len(data)
 
 
-        """
-        for Epoch in range(0,epochs):
 
-            h_prev = np.zeros((RNN.m, 1))
-            print("NEW EPOCH", Epoch)
-        """
         h_prev = np.zeros((RNN.m, 1))
         for e in range(0,(lendata-seq_length)*epochs,seq_length):
 
@@ -277,7 +272,7 @@ class RNN:
 
 
 
-            grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGradsGIT(X_chars,Y_chars,h_prev)
+            grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGrads(X_chars,Y_chars,h_prev)
 
             #Adagrad updatestep
 
@@ -318,18 +313,19 @@ class RNN:
                 print("Epoch:", e // (lendata-seq_length), "iter:", e/(seq_length), "loss", loss, "smoothloss", smoothloss)
 
 
-                print("@@@",h_prev.shape, X_chars[:,0].shape, 200)
-                text = self.synth_text(h_prev, X_chars[:,0], 200) #HERE
+
+                text = self.synth_text(h_prev, X_chars[:,0], 1000) #HERE
 
 
 
-
-                for i in range(0,len(text)):
+                for i in range(0,text.shape[1]):
                     indexone = np.where(text[:, i] == 1)[0][0]
                     print(inv_map[indexone],end ="" )
                 #print(inv_map[text[:,0]])
 
 
+
+        return losslist
 
 
 
@@ -390,5 +386,18 @@ if __name__ == "__main__":
 
     #05
 
-    losslist = RNN.train(epochs= 6,eta=0.01,eps=1e-8)   #byt ut denna mot githubassignment4 sucessivt...
+    losslist = RNN.train(epochs= 15,eta=0.005,eps=1e-8)
+
+
+    plt.plot(losslist)
+
+    plt.title('Smoothed Loss Every 10 000 Iterations')
+    plt.xlabel('x 10 000 Iterations')
+    plt.ylabel('Smooth Loss')
+
+    plt.show()
+
+
+
+
 
