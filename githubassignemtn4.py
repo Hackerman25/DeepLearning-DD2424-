@@ -114,7 +114,8 @@ class RecurrentNeuralNetwork():
             eta: the learning rate value
         """
         self.init_parameters(sig)
-        self.AdaGrad(compile_output, seq_len, epoch, eta)
+        #self.AdaGrad(compile_output, seq_len, epoch, eta)
+        self.train(epoch,eta,sig)
 
     def init_parameters(self, sig):
         """
@@ -356,7 +357,6 @@ class RecurrentNeuralNetwork():
                     X = onehot_conversion(compile_output, e, e + seq_len)
                     Y = onehot_conversion(compile_output, e + 1, e + seq_len + 1)
 
-                    print(X.shape, Y.shape, "@@@@@@@2")
                     e += seq_len
 
                 grads, loss, h = self.compute_gradients(X, Y, hprev)
@@ -368,7 +368,6 @@ class RecurrentNeuralNetwork():
                 for g in grads:
                     m_params[g] += np.power(grads[g], 2)
 
-                    print("shape",  self.params[g].shape,m_params[g].shape,grads[g].shape)
 
                     self.params[g] -= np.multiply(eta / np.sqrt(m_params[g] + epsilon), grads[g])
 
@@ -383,6 +382,7 @@ class RecurrentNeuralNetwork():
 
                 if t % 10000 == 0:
 
+                    print(hprev.shape, "HPREV")
                     Y_t = self.synthesize_text(hprev, X[:, 0], 200)
                     text = ''
                     for i in range(Y_t.shape[1]):
@@ -401,6 +401,93 @@ class RecurrentNeuralNetwork():
             idx = np.where(Y_t[:, i] == 1)[0][0]
             text += compile_output['ind_to_char'][idx]
         print(text)
+
+
+
+    def train(self,epochs,eta,eps):
+        print("Training:")
+
+        seq_length = 25
+
+        G = [np.zeros_like(self.params['U']),
+            np.zeros_like(self.params['W']),
+            np.zeros_like(self.params['V']),
+            np.zeros_like(self.params['b']),
+            np.zeros_like(self.params['c'])]
+
+        h_prev = np.zeros((self.m, 1))
+
+        losslist = []
+        lendata = len(data)
+
+
+
+        for Epoch in range(0,epochs):
+            for e in range(0,(lendata-seq_length),seq_length):
+
+
+
+                X_chars = OneHotEncoding(data, my_map, begin=e, end=e + seq_length)
+                Y_chars = OneHotEncoding(data, my_map, begin=e + 1, end=e + seq_length+1)
+
+
+
+
+
+                grad_U, grad_W, grad_V, grad_b, grad_c, loss, h = self.CompGradsGIT(X_chars,Y_chars,h_prev)
+
+                #Adagrad updatestep
+
+                gradlist = [grad_U, grad_W, grad_V, grad_b, grad_c]
+                paramlist = [self.U, self.W, self.V, self.b, self.c]
+
+                if e == 0 and Epoch == 0:
+                    smoothloss = loss
+                else:
+                    smoothloss = .999 * smoothloss + .001 * loss
+
+
+                for i in range(len(gradlist)):
+
+                    G[i] += np.power(gradlist[i], 2)
+
+
+                    paramlist[i] -=  (eta /  np.sqrt(G[i]+eps)) * gradlist[i]
+                h_prev = h
+
+                if (e/(seq_length) % 1000) == 0:
+                    losslist.append(smoothloss[0,0])
+                    print("\n")
+                    print("iter:", e/(seq_length), "loss", loss, "smoothloss", smoothloss)
+
+
+                    print("@@@",h_prev.shape, X_chars[:,0].shape, 200)
+                    text = self.synth_text(h_prev, X_chars[:,0], 200) #HERE
+
+
+
+
+                    for i in range(0,len(text)):
+                        indexone = np.where(text[:, i] == 1)[0][0]
+                        print(inv_map[indexone],end ="" )
+                    #print(inv_map[text[:,0]])
+
+
+
+
+
+
+
+        print(losslist)
+        plt.plot(range(len(losslist)),losslist)
+        plt.ylabel('Loss')
+        plt.show()
+
+
+
+
+
+
 
 
 if __name__ == '__main__':

@@ -381,8 +381,8 @@ if __name__ == "__main__":
     #print(X_chars.shape,Y_chars.shape)
 
 
-    print("testing gradients")
-    RNN.testgradients(X_chars,Y_chars)
+    #print("testing gradients")
+    #RNN.testgradients(X_chars,Y_chars)
 
 
 
