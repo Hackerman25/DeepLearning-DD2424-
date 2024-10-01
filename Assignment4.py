@@ -1,5 +1,4 @@
 import numpy as np
-import copy
 import matplotlib.pyplot as plt
 
 np.random.seed(1)
@@ -7,7 +6,7 @@ np.random.seed(1)
 
 
 def getdata():
-    fileurl = r"C:\Users\Marcus\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
+    fileurl = r"C:\Users\Marcu\Documents\GitHub\DeepLearning-DD2424-\Datasets\goblet_book.txt"
     file = open(fileurl, "r")
     data = file.read()
 
@@ -97,9 +96,10 @@ class RNN:
     def synth_text(self,h0, x0, n):
 
         Y = np.zeros((self.K, n))
+        h_t = h0
         for t in range(n):
 
-            a_t,h_t,o_t,p_t = RNN.eval_RNN(h0, x0)
+            a_t,h_t,o_t,p_t = RNN.eval_RNN(h_t, x0)
 
 
 
@@ -117,64 +117,54 @@ class RNN:
 
         return Y
 
-
-
     def CompGrads(self, X, Y, h0):
 
         seq_len = X.shape[1]
 
         loss = 0
-        a = np.zeros((seq_length, RNN.m, 1))  # 9 x m x 1 = 100 x 1
-        h = np.zeros((seq_length, RNN.m, 1))  # 9 x m x 1
-        o = np.zeros((seq_length, X_chars.shape[0], RNN.m))  # 9 x k x m = 83 x 100
-        p = np.zeros((seq_length, X_chars.shape[0], 1))  # 9 x k x 1
+        a = np.zeros((seq_len, RNN.m, 1))  # 9 x m x 1 = 100 x 1
+        h = np.zeros((seq_len, RNN.m, 1))  # 9 x m x 1
+        o = np.zeros((seq_len, X_chars.shape[0], RNN.m))  # 9 x k x m = 83 x 100
+        p = np.zeros((seq_len, X_chars.shape[0], 1))  # 9 x k x 1
         h[-1] = h0
 
-        grad_o = np.zeros((seq_length, 1, X_chars.shape[0]))  # 9 x 1 x 83
-        grad_h = np.zeros((seq_length, 1, RNN.m))
-        grad_a = np.zeros((seq_length, 1, RNN.m))
-        grad_U = np.zeros_like(self.U)
-        grad_W = np.zeros_like(self.W)
-        grad_V = np.zeros_like(self.V)
-        grad_b = np.zeros_like(self.b)
-        grad_c = np.zeros_like(self.c)
+        d_o = np.zeros((seq_len, 1, X_chars.shape[0]))  # 9 x 1 x 83
+        d_h = np.zeros((seq_len, 1, RNN.m))
+        d_a = np.zeros((seq_len, 1, RNN.m))
+        d_U = np.zeros_like(self.U)
+        d_W = np.zeros_like(self.W)
+        d_V = np.zeros_like(self.V)
+        d_b = np.zeros_like(self.b)
+        d_c = np.zeros_like(self.c)
 
         # forward pass
         for t in range(seq_len):
             a[t], h[t], o[t], p[t] = self.eval_RNN(h[t - 1], X[:, t])
             loss += -np.log(Y[:, t].reshape(Y.shape[0], 1).T @ p[t])
+
         # backward pass
         for t in reversed(range(seq_len)):
-            grad_o[t] = -(Y[:, t].reshape(Y.shape[0], 1) - p[t]).T
-            grad_V += grad_o[t].T @ h[t].T
-            grad_c += grad_o[t].T
+            d_o[t] = -(Y[:, t].reshape(Y.shape[0], 1) - p[t]).T
+            d_V += d_o[t].T @ h[t].T
+            d_c += d_o[t].T
 
             if t == seq_len - 1:
-                grad_h[t] =   grad_o[t] @ self.V
+                d_h[t] = d_o[t] @ self.V
             else:
-                grad_h[t] =  grad_o[t] @ self.V + grad_a[t+1]  @ self.W
-            grad_a[t] = grad_h[t] * (1 - np.tanh(a[t].T) ** 2)
+                d_h[t] = d_o[t] @ self.V + d_a[t + 1] @ self.W
+            d_a[t] = d_h[t] * (1 - np.tanh(a[t].T) ** 2)
 
+            d_W += d_a[t].T @ h[t - 1].T
+            d_U += (d_a[t].T) @ (X[:, t].reshape(X.shape[0], 1).T)
+            d_b += d_a[t].T
 
-
-
-
-            grad_W += grad_a[t].T @ h[t - 1].T
-
-            grad_U += (grad_a[t].T) @ (X[:, t].reshape(X.shape[0], 1).T)
-            grad_b += grad_a[t].T
-
-        grad_U, grad_W, grad_V, grad_b, grad_c = np.clip(grad_U, -5, 5), np.clip(grad_W, -5, 5), np.clip(grad_V, -5,5), np.clip(grad_b, -5, 5), np.clip(grad_c, -5, 5)
+        d_U, d_W, d_V, d_b, d_c = np.clip(d_U, -5, 5), np.clip(d_W, -5, 5), np.clip(d_V, -5, 5), np.clip(d_b, -5,
+                                                                                                         5), np.clip(
+            d_c, -5, 5)
 
         hprev = h[-1]
 
-
-
-        return grad_U, grad_W, grad_V, grad_b, grad_c, loss, hprev
-
-
-
-
+        return d_U, d_W, d_V, d_b, d_c, loss, hprev
 
     def printsentence(self,result):
         index = np.where(result == 1)[0]
